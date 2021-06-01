@@ -92,13 +92,16 @@ int main(int argc, char **argv)
                                 aux1 = bp;
                                 aux2 = sp;
 
-                                // updating stack variables to return from current actiavtion record
-                                // to actiavtion record where function was called
+                                // updating stack variables to return from current activation record
+                                // to actiavtion record from where the function was called
                                 sp = bp - 1;
                                 bp = pas[sp + 2];
                                 pc = pas[sp + 3];
 
-                                // setting all the values in the function activation code to 0
+                                // setting all the values in the function activation record to 0
+                                pas[sp + 1] = 0;
+                                pas[sp + 2] = 0;
+                                pas[sp + 3] = 0;
                                 for (int i = aux1; i <= aux2; ++i)
                                     pas[i] = 0;
 
