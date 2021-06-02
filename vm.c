@@ -54,7 +54,7 @@ int main(int argc, char **argv)
 
     // initial output
     printf("                 PC   BP   SP    stack\n");
-    printf("Initial values:   0  %3d  %3d\n\n", bp, sp);
+    printf("Initial values:   0  %3d  %3d\n", bp, sp);
 
     // fetching and executing the program line by line
     while (!halt)
@@ -304,8 +304,8 @@ int main(int argc, char **argv)
 
                         // Read in input from the user and store it on top of the stack
                         case 2: sp = sp + 1;
-                                printf("Please enter an integer: ");
-                                scanf("%d", &pas[sp]);
+                                printf("Please Enter an Integer:\n");
+                                scanf("%d", pas + sp);
                                 break;
 
                         // End of program
