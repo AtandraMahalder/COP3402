@@ -25,24 +25,24 @@ int base(int);
 int main(int argc, char **argv)
 {
     // initializing the program address space pas
-    for (int i = 0; i < MAX_PAS_SIZE; ++i)
-        pas[i] = 0;
+    for (int index = 0; index < MAX_PAS_SIZE; ++index)
+        pas[index] = 0;
 
     // fetching the input file from command line and opening it with
     // file pointer fp
     FILE *fp = fopen(argv[1], "r");
 
     // loading the program from the file into the pas
-    int i = 0;
+    int index = 0;
     while (!feof(fp))
     {
-        fscanf(fp, "%d", pas + i);
-        i++;
+        fscanf(fp, "%d", pas + index);
+        index++;
     }
 
     // initializing the stack pointer, base pointer and program counter
-    sp = i - 2;
-    bp = i - 1;
+    sp = index - 2;
+    bp = index - 1;
     pc = 0;
 
     // creating an array to store the beginning of each activation record
@@ -50,7 +50,7 @@ int main(int argc, char **argv)
     int arbnum = 0;
 
     // creating a variable to store the base of the stack
-    int stackstart = i - 1;
+    int stackstart = bp;
 
     // initial output
     printf("                 PC   BP   SP    stack\n");
