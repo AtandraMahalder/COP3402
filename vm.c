@@ -33,16 +33,16 @@ int main(int argc, char **argv)
     FILE *fp = fopen(argv[1], "r");
 
     // loading the program from the file into the pas
-    int index = 0;
-    while (!feof(fp))
+    int index = 0, buffer = 0;
+    while (fscanf(fp, "%d", &buffer) != EOF)
     {
-        fscanf(fp, "%d", pas + index);
+        pas[index] = buffer;
         index++;
     }
 
     // initializing the stack pointer, base pointer and program counter
-    sp = index - 2;
-    bp = index - 1;
+    sp = index - 1;
+    bp = index;
     pc = 0;
 
     // creating an array to store the beginning of each activation record
@@ -69,9 +69,6 @@ int main(int argc, char **argv)
         // updating the program counter
         pc += 3;
 
-        // declaring variables for auxilliary purposes
-        int aux1, aux2;
-
         // using operation code to select the instruction to be executed
         switch (ir[0])
         {
@@ -87,23 +84,11 @@ int main(int argc, char **argv)
             case 2: switch(ir[2])
                     {
                         // if operation is return
-                        case 0: // storing base and stack pointer of current activation record
-                                // using auxilliary variables
-                                aux1 = bp;
-                                aux2 = sp;
-
-                                // updating stack variables to return from current activation record
+                        case 0: // updating stack variables to return from current activation record
                                 // to actiavtion record from where the function was called
                                 sp = bp - 1;
                                 bp = pas[sp + 2];
                                 pc = pas[sp + 3];
-
-                                // setting all the values in the function activation record to 0
-                                pas[sp + 1] = 0;
-                                pas[sp + 2] = 0;
-                                pas[sp + 3] = 0;
-                                for (int i = aux1; i <= aux2; ++i)
-                                    pas[i] = 0;
 
                                 // updating size of arbdiv
                                 arbnum--;
@@ -123,7 +108,6 @@ int main(int argc, char **argv)
                         // if the operation is add
                         case 2: sp = sp - 1;
                                 pas[sp] = pas[sp] + pas[sp + 1];
-                                pas[sp + 1] = 0;
 
                                 // print relevant values associated with the stack machine
                                 printf("%3d ADD %3d %3d %3d  %3d  %3d  ", curr_pc, ir[1], ir[2], pc, bp, sp);
@@ -132,7 +116,6 @@ int main(int argc, char **argv)
                         // if the operation is subtract
                         case 3: sp = sp - 1;
                                 pas[sp] = pas[sp] - pas[sp + 1];
-                                pas[sp + 1] = 0;
 
                                 // print relevant values associated with the stack machine
                                 printf("%3d SUB %3d %3d %3d  %3d  %3d  ", curr_pc, ir[1], ir[2], pc, bp, sp);
@@ -141,7 +124,6 @@ int main(int argc, char **argv)
                         // if the operation is multiply
                         case 4: sp = sp - 1;
                                 pas[sp] = pas[sp] * pas[sp + 1];
-                                pas[sp + 1] = 0;
 
                                 // print relevant values associated with the stack machine
                                 printf("%3d MUL %3d %3d %3d  %3d  %3d  ", curr_pc, ir[1], ir[2], pc, bp, sp);
@@ -150,7 +132,6 @@ int main(int argc, char **argv)
                         // if the operation is divide
                         case 5: sp = sp - 1;
                                 pas[sp] = pas[sp] / pas[sp + 1];
-                                pas[sp + 1] = 0;
 
                                 // print relevant values associated with the stack machine
                                 printf("%3d DIV %3d %3d %3d  %3d  %3d  ", curr_pc, ir[1], ir[2], pc, bp, sp);
@@ -166,7 +147,6 @@ int main(int argc, char **argv)
                         // if the operation is modulus
                         case 7: sp = sp - 1;
                                 pas[sp] = pas[sp] % pas[sp + 1];
-                                pas[sp + 1] = 0;
 
                                 // print relevant values associated with the stack machine
                                 printf("%3d MOD %3d %3d %3d  %3d  %3d  ", curr_pc, ir[1], ir[2], pc, bp, sp);
@@ -175,8 +155,7 @@ int main(int argc, char **argv)
                         // if the operation is to check for equality between the value on top of stack and the
                         // one beneath it
                         case 8: sp = sp - 1;
-                                pas[sp] = (pas[sp] == pas[sp + 1]);
-                                pas[sp + 1] = 0;
+                                pas[sp] = !((pas[sp] == pas[sp + 1]));
 
                                 // print relevant values associated with the stack machine
                                 printf("%3d EQL %3d %3d %3d  %3d  %3d  ", curr_pc, ir[1], ir[2], pc, bp, sp);
@@ -185,8 +164,7 @@ int main(int argc, char **argv)
                         // if the operation is to check for inequality between the value on top of stack and the
                         // one beneath it
                         case 9: sp = sp - 1;
-                                pas[sp] = (pas[sp] != pas[sp + 1]);
-                                pas[sp + 1] = 0;
+                                pas[sp] = !((pas[sp] != pas[sp + 1]));
 
                                 // print relevant values associated with the stack machine
                                 printf("%3d NEQ %3d %3d %3d  %3d  %3d  ", curr_pc, ir[1], ir[2], pc, bp, sp);
@@ -195,8 +173,7 @@ int main(int argc, char **argv)
                         // if the operation is to check whether the value on top of stack is greater than the one
                         // beneath it
                         case 10: sp = sp - 1;
-                                 pas[sp] = (pas[sp] < pas[sp + 1]);
-                                 pas[sp + 1] = 0;
+                                 pas[sp] = !((pas[sp] < pas[sp + 1]));
 
                                  // print relevant values associated with the stack machine
                                  printf("%3d LSS %3d %3d %3d  %3d  %3d  ", curr_pc, ir[1], ir[2], pc, bp, sp);
@@ -205,8 +182,7 @@ int main(int argc, char **argv)
                         // if the operation is to check whether the value on top of stack is greater than or equal
                         // to the one beneath it
                         case 11: sp = sp - 1;
-                                 pas[sp] = (pas[sp] <= pas[sp + 1]);
-                                 pas[sp + 1] = 0;
+                                 pas[sp] = !((pas[sp] <= pas[sp + 1]));
 
                                  // print relevant values associated with the stack machine
                                  printf("%3d LEQ %3d %3d %3d  %3d  %3d  ", curr_pc, ir[1], ir[2], pc, bp, sp);
@@ -215,8 +191,7 @@ int main(int argc, char **argv)
                         // if the operation is to check whether the value on top of stack is less than the one
                         // beneath it
                         case 12: sp = sp - 1;
-                                 pas[sp] = (pas[sp] > pas[sp + 1]);
-                                 pas[sp + 1] = 0;
+                                 pas[sp] = !((pas[sp] > pas[sp + 1]));
 
                                  // print relevant values associated with the stack machine
                                  printf("%3d GTR %3d %3d %3d  %3d  %3d  ", curr_pc, ir[1], ir[2], pc, bp, sp);
@@ -225,8 +200,7 @@ int main(int argc, char **argv)
                         // if the operation is to check whether the value on top of stack is less than or equal
                         // to the one beneath it
                         case 13: sp = sp - 1;
-                                 pas[sp] = (pas[sp] >= pas[sp + 1]);
-                                 pas[sp + 1] = 0;
+                                 pas[sp] = !((pas[sp] >= pas[sp + 1]));
 
                                  // print relevant values associated with the stack machine
                                  printf("%3d GEQ %3d %3d %3d  %3d  %3d  ", curr_pc, ir[1], ir[2], pc, bp, sp);
@@ -244,7 +218,6 @@ int main(int argc, char **argv)
 
             // Store value at top of stack in the stack location at offset ir[2] from ir[1] lexicographical levels down
             case 4: pas[base(ir[1]) + ir[2]] = pas[sp];
-                    pas[sp] = 0;
                     sp = sp - 1;
 
                     // print relevant values associated with the stack machine
@@ -286,7 +259,6 @@ int main(int argc, char **argv)
             case 8: if (pas[sp] == 1)
                         pc = ir[2];
 
-                    pas[sp] = 0;
                     sp = sp - 1;
 
                     // print relevant values associated with the stack machine
@@ -298,13 +270,12 @@ int main(int argc, char **argv)
                     {
                         // Write the top stack element to the screen
                         case 1: printf("Output result is: %d\n", pas[sp]);
-                                pas[sp] = 0;
                                 sp = sp - 1;
                                 break;
 
                         // Read in input from the user and store it on top of the stack
                         case 2: sp = sp + 1;
-                                printf("Please Enter an Integer:\n");
+                                printf("Please Enter an Integer: \n");
                                 scanf("%d", pas + sp);
                                 break;
 
