@@ -18,7 +18,6 @@ int lex_index;
 
 void printerror(int type);
 void printtokens();
-int findsymb(char*);
 
 lexeme *lexanalyzer(char *input)
 {
@@ -29,293 +28,290 @@ lexeme *lexanalyzer(char *input)
 						"else", "while", "do", "begin", "end", "read", "write",
 						"odd"};
 
-	FILE *fp = fopen(input, "r");
-
-	char name[12];
-	char buffer;
-	while (fscanf(fp, "%c", &buffer) != EOF)
+	int buff = 0;
+	while (input[buff])
 	{
-		if (iscntrl(buffer) || buffer == ' ') continue;
-
-		// check if the token is an identifier or keyword
-		if (isalpha(buffer))
+		if (iscntrl(input[buff]) || iscntrl(input[buff]) != ' ')
 		{
-			name[0] = buffer;
+			buff++;
+			continue;
+		}
+
+		// check if the token is an identifier or a keyword
+		if (isalpha(input[buff]))
+		{
+			char varname[12];
+			varname[0] = input[buff];
+
+			// reading in identifier or keyword
 			int i = 1;
-			while (i < 12 && fscanf(fp, "%c", &buffer))
+			buff++;
+			while (i < 12 && (isalpha(input[buff]) || isdigit(input[buff])))
 			{
-				if (isalpha(buffer) || isdigit(buffer))
-					name[i++] = buffer;
-
-				else break;
-			}
-
-			// if the length of the token is more than 12
-			if (i == 12)
-			{
-				printerror(4);
-				fclose(fp);
-				return NULL;
-			}
-
-			// if the identifier or keyword is valid convert it to a string
-			name[i] = '\0';
-
-			// check if the token is a keyword
-			i = 0;
-			while (i < 14)
-			{
-				if (!strcmp(reserved[i], name))
-				{
-					list[lex_index++].type = findsymb(reserved[i]);
-					break;
-				}
-
+				varname[i] = input[buff];
+				buff++;
 				i++;
 			}
 
-			if (i < 14)
+			// if identifier or keyword has excessive length
+			if (i == 12)
 			{
-				fseek(fp, -1, SEEK_CUR);
-				continue;
+				printerror(4);
+				return NULL;
 			}
 
-			list[lex_index].type = 32;
-			strcpy(list[lex_index].name, name);
+			varname[i] = '\0';
+
+			i = 0;
+			while (i < 14)
+			{
+				// if the variable is a keyword
+				if (!strcmp(varname, reserved[i]))
+				{
+					switch(i)
+					{
+						case 0: list[lex_index++].type = constsym;
+								break;
+						case 1: list[lex_index++].type = varsym;
+								break;
+						case 2: list[lex_index++].type = procsym;
+								break;
+						case 3: list[lex_index++].type = callsym;
+								break;
+						case 4: list[lex_index++].type = ifsym;
+								break;
+						case 5: list[lex_index++].type = thensym;
+								break;
+						case 6: list[lex_index++].type = elsesym;
+								break;
+						case 7: list[lex_index++].type = whilesym;
+								break;
+						case 8: list[lex_index++].type = dosym;
+								break;
+						case 9: list[lex_index++].type = beginsym;
+								break;
+						case 10: list[lex_index++].type = endsym;
+								break;
+						case 11: list[lex_index++].type = readsym;
+								 break;
+						case 12: list[lex_index++].type = writesym;
+								 break;
+						case 13: list[lex_index++].type = oddsym;
+								 break;
+					}
+
+					break;
+				}
+			}
+
+			// if the variable is a keyword continue
+			if (i < 14)
+				continue;
+
+			// if the variable is an identifier
+			list[lex_index].type = identsym;
+			strcpy(list[lex_index].name, varname);
 			lex_index++;
-			fseek(fp, -1, SEEK_CUR);
 			continue;
 		}
 
 		// check if the token is a numerical value
-		if (isdigit(buffer))
+		if (isdigit(input[buff]))
 		{
-			char numb[5];
-			numb[0] = buffer;
-			int i = 1;
+			char number[5];
+			number[0] = input[buff];
 
-			while (i < 5 && fscanf(fp, "%c", &buffer))
+			// fetching the whole number or checking if its an invalid identifier
+			int i = 1;
+			buff++;
+			while (i < 5 && input[buff])
 			{
-				if (isdigit(buffer))
-					numb[i++] = buffer;
-				else if (isalpha(buffer))
+				if (isalpha(input[buff]))
 				{
 					printerror(2);
-					fclose(fp);
 					return NULL;
 				}
-				else break;
+
+				if (!isdigit(input[buff]))
+					break;
+
+				number[i] = input[buff];
+				i++;
+				buff++;
 			}
 
+			// checking if the number exceeds the maximum length
 			if (i == 5)
 			{
 				printerror(3);
-				fclose(fp);
 				return NULL;
 			}
 
-			list[lex_index].type = 33;
+			list[lex_index].type = numbersym;
 			list[lex_index].value = 0;
 			for (int j = 0; j < i; ++j)
-				list[lex_index].value = 10*list[lex_index].value + numb[j] - '0';
+				list[lex_index].value = 10*list[lex_index].value + number[j] - 48;
 
 			lex_index++;
-			fseek(fp, -1, SEEK_CUR);
 			continue;
 		}
 
-		if (buffer == '/')
+		if (input[buff] == '/')
 		{
-			if (fscanf(fp, "%c", &buffer) != EOF)
+			if (input[buff + 1] != '*')
 			{
-				if (buffer == '*')
-				{
-					int endofcomment = 0;
-					while (fscanf(fp, "%c", &buffer) != EOF)
-					{
-						if (buffer == '*')
-						{
-							if (fscanf(fp, "%c", &buffer) == EOF)
-							{
-								printerror(5);
-								fclose(fp);
-								return NULL;
-							}
-							else if (buffer == '/')
-							{
-								endofcomment = 1;
-								break;
-							}
-							else fseek(fp, -1, SEEK_CUR);
-						}
-					}
-
-					if (!endofcomment)
-					{
-						printerror(5);
-						fclose(fp);
-						return NULL;
-					}
-
-					continue;
-				}
-				else
-				{
-					list[lex_index++].type = 10;
-					fseek(fp, -1, SEEK_CUR);
-					continue;
-				}
+				list[lex_index++].type = slashsym;
+				buff++;
+				continue;
 			}
 			else
 			{
-				list[lex_index++].type = 10;
-				fseek(fp, -1, SEEK_CUR);
-				fclose(fp);
-				return list;
+				int endofcomment = 0;
+				while (input[buff])
+				{
+					if (input[buff] == '*' && input[buff + 1] == '/')
+					{
+						endofcomment = 1;
+						break;
+					}
+
+					buff++;
+				}
+
+				if (!endofcomment)
+				{
+					printerror(5);
+					return NULL;
+				}
+
+				buff += 2;
+				continue;
 			}
 		}
 
-		if (buffer == '%')
+		if (input[buff] == '%')
 		{
-			list[lex_index++].type = 8;
+			list[lex_index++].type = modsym;
+			buff++;
 			continue;
 		}
 
-		if (buffer == ',')
+		if (input[buff] == '*')
 		{
-			list[lex_index++].type = 15;
+			list[lex_index++].type = multsym;
+			buff++;
 			continue;
 		}
 
-		if (buffer == '.')
+		if (input[buff] == '+')
 		{
-			list[lex_index++].type = 16;
+			list[lex_index++].type = plussym;
+			buff++;
 			continue;
 		}
 
-		if (buffer == ';')
+		if (input[buff] == '-')
 		{
-			list[lex_index++].type = 17;
+			list[lex_index++].type = minussym;
+			buff++;
 			continue;
 		}
 
-		if (buffer == '-')
+		if (input[buff] == '(')
 		{
-			list[lex_index++].type = 12;
+			list[lex_index++].type = lparentsym;
+			buff++;
 			continue;
 		}
 
-		if (buffer == ')')
+		if (input[buff] == ')')
 		{
-			list[lex_index++].type = 14;
+			list[lex_index++].type = rparentsym;
+			buff++;
 			continue;
 		}
 
-		if (buffer == '(')
+		if (input[buff] == ',')
 		{
-			list[lex_index++].type = 13;
+			list[lex_index++].type = commasym;
+			buff++;
 			continue;
 		}
 
-		if (buffer == '+')
+		if (input[buff] == '.')
 		{
-			list[lex_index++].type = 11;
+			list[lex_index++].type = periodsym;
+			buff++;
 			continue;
 		}
 
-		if (buffer == '*')
+		if (input[buff] == ';')
 		{
-			list[lex_index++].type = 9;
+			list[lex_index++].type = semicolonsym;
+			buff++;
 			continue;
 		}
 
-		if (buffer == '=')
+		if (input[buff] == '=' || input[buff] == ':')
 		{
-			if (fscanf(fp, "%c", &buffer) != EOF && buffer == '=')
+			if (input[buff + 1] && input[buff + 1] == '=')
 			{
-				list[lex_index++].type = 2;
+				if (input[buff] == '=')
+					list[lex_index++].type = eqlsym;
+				else
+					list[lex_index++].type = becomessym;
+
+				buff += 2;
 				continue;
 			}
 			else
 			{
 				printerror(1);
-				fclose(fp);
 				return NULL;
 			}
 		}
 
-		if (buffer == ':')
+		if (input[buff] == '<')
 		{
-			if (fscanf(fp, "%c", &buffer) != EOF && buffer == '=')
+			if (input[buff + 1] == '>' || input[buff + 1] == '=')
 			{
-				list[lex_index++].type = 18;
+				if (input[buff + 1] == '>')
+					list[lex_index++].type = neqsym;
+				else
+					list[lex_index++].type = leqsym;
+
+				buff+=2;
 				continue;
 			}
 			else
 			{
-				printerror(1);
-				fclose(fp);
-				return NULL;
+				list[lex_index++].type = lessym;
+				buff++;
+				continue;
 			}
 		}
 
-		if (buffer == '<')
+		if (input[buff] == '>')
 		{
-			if (fscanf(fp, "%c", &buffer) != EOF)
+			if (input[buff + 1] == '=')
 			{
-				if (buffer == '>')
-				{
-					list[lex_index++].type = 3;
-					continue;
-				}
-				if (buffer == '=')
-				{
-					list[lex_index++].type = 7;
-					continue;
-				}
-				else
-				{
-					list[lex_index++].type = 4;
-					fseek(fp, -1, SEEK_CUR);
-					continue;
-				}
+				list[lex_index++].type = geqsym;
+				buff += 2;
+				continue;
 			}
 			else
 			{
-				list[lex_index++].type = 4;
-				fseek(fp, -1, SEEK_CUR);
-				fclose(fp);
-				return list;
+				list[lex_index++].type = gtrsym;
+				buff++;
+				continue;
 			}
 		}
 
-		if (buffer == '>')
-		{
-			if (fscanf(fp, "%c", &buffer) != EOF)
-			{
-				if (buffer == '=')
-				{
-					list[lex_index++].type = 7;
-					continue;
-				}
-				else
-				{
-					list[lex_index++].type = 6;
-					fseek(fp, -1, SEEK_CUR);
-					continue;
-				}
-			}
-			else
-			{
-				list[lex_index++].type = 6;
-				fseek(fp, -1, SEEK_CUR);
-				fclose(fp);
-				return list;
-			}
-		}
+		printerror(1);
+		return NULL;
 	}
 
-	fclose(fp);
+	printtokens();
 	return list;
 }
 
@@ -462,49 +458,4 @@ void printerror(int type)
 
 	free(list);
 	return;
-}
-
-int findsymb(char *reseved)
-{
-	if (!strcmp(reseved, "odd"))
-		return 1;
-
-	if (!strcmp(reseved, "begin"))
-		return 19;
-
-	if (!strcmp(reseved, "end"))
-		return 20;
-
-	if (!strcmp(reseved, "if"))
-		return 21;
-
-	if (!strcmp(reseved, "then"))
-		return 22;
-
-	if (!strcmp(reseved, "else"))
-		return 23;
-
-	if (!strcmp(reseved, "while"))
-		return 24;
-
-	if (!strcmp(reseved, "do"))
-		return 25;
-
-	if (!strcmp(reseved, "call"))
-		return 26;
-
-	if (!strcmp(reseved, "write"))
-		return 27;
-
-	if (!strcmp(reseved, "read"))
-		return 28;
-
-	if (!strcmp(reseved, "const"))
-		return 29;
-
-	if (!strcmp(reseved, "var"))
-		return 30;
-
-	if (!strcmp(reseved, "procedure"))
-		return 31;
 }
