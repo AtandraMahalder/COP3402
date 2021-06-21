@@ -31,7 +31,7 @@ lexeme *lexanalyzer(char *input)
 	int buff = 0;
 	while (input[buff])
 	{
-		if (iscntrl(input[buff]) || iscntrl(input[buff]) != ' ')
+		if (iscntrl(input[buff]) || iscntrl(input[buff]) == ' ')
 		{
 			buff++;
 			continue;
@@ -102,6 +102,8 @@ lexeme *lexanalyzer(char *input)
 
 					break;
 				}
+
+				i++;
 			}
 
 			// if the variable is a keyword continue
@@ -254,7 +256,7 @@ lexeme *lexanalyzer(char *input)
 
 		if (input[buff] == '=' || input[buff] == ':')
 		{
-			if (input[buff + 1] && input[buff + 1] == '=')
+			if (input[buff + 1] == '=')
 			{
 				if (input[buff] == '=')
 					list[lex_index++].type = eqlsym;
