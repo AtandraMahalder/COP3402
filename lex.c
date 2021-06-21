@@ -54,7 +54,7 @@ lexeme *lexanalyzer(char *input)
 			}
 
 			// if identifier or keyword has excessive length
-			if (i == 12)
+			if (i == 12 && (isalpha(input[buff]) || isdigit(input[buff])))
 			{
 				printerror(4);
 				return NULL;
@@ -145,8 +145,16 @@ lexeme *lexanalyzer(char *input)
 			// checking if the number exceeds the maximum length
 			if (i == 5)
 			{
-				printerror(3);
-				return NULL;
+				if (isdigit(input[buff]))
+				{
+					printerror(3);
+					return NULL;
+				}
+				if (isalpha(input[buff]))
+				{
+					printerror(2);
+					return NULL;
+				}
 			}
 
 			list[lex_index].type = numbersym;
