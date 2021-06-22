@@ -14,30 +14,29 @@
 lexeme *list;
 int lex_index;
 
-//function to print error messages in case the scanner encounters lexical errors
+// function to print error messages in case the scanner encounters lexical errors
 void printerror(int type);
 
-//function to print the tokens in both list and table formats
+// function to print the tokens in both list and table formats
 void printtokens();
 
-//function to read in the program, tokenize it, and store in an array
+// function to read in the program as a string, tokenize it, and store in an array
 lexeme *lexanalyzer(char *input)
 {
-	//array to store the lexeme list
+	// array to store the lexeme list
 	list = malloc(500 * sizeof(lexeme));
 	lex_index = 0;
 
-	//list of keywords of the PL/0 language
+	// list of keywords in PL/0 language
 	char reserved[][12] = {"const", "var", "procedure", "call", "if", "then",
-						"else", "while", "do", "begin", "end", "read", "write",
-						"odd"};
+				"else", "while", "do", "begin", "end", "read", "write",
+				"odd"};
 
+	// read contents of the input file
 	int buff = 0;
-
-	//read contents of the input file
 	while (input[buff])
 	{
-		//check if the character is a whitespace and ignore it if it is
+		// check if the character is a whitespace and ignore it if it is
 		if (iscntrl(input[buff]) || iscntrl(input[buff]) == ' ')
 		{
 			buff++;
@@ -47,7 +46,7 @@ lexeme *lexanalyzer(char *input)
 		// check if the token is an identifier or a keyword
 		if (isalpha(input[buff]))
 		{
-			//temporary storage to store the possible keyword or identifier
+			// temporary storage to store the possible keyword or identifier
 			char varname[12];
 			varname[0] = input[buff];
 
@@ -68,7 +67,7 @@ lexeme *lexanalyzer(char *input)
 				return NULL;
 			}
 
-			//add terminating character if keyword or identifier is valid
+			// add terminating character if keyword or identifier is valid
 			varname[i] = '\0';
 
 			i = 0;
@@ -126,10 +125,10 @@ lexeme *lexanalyzer(char *input)
 			// if the variable is an identifier
 			list[lex_index].type = identsym;
 
-			//store the name of the identifier
+			// store the name of the identifier
 			strcpy(list[lex_index].name, varname);
 
-			//move the lexeme list array index forward
+			// move the lexeme list array index forward
 			lex_index++;
 
 			continue;
@@ -144,8 +143,6 @@ lexeme *lexanalyzer(char *input)
 			// fetching the whole number or checking if its an invalid identifier
 			int i = 1;
 			buff++;
-
-			//read the number as long as it is less than 5 digits long
 			while (i < 5 && input[buff])
 			{
 				/*check if the character is letter and throw invalid identifier error,
@@ -157,7 +154,7 @@ lexeme *lexanalyzer(char *input)
 					return NULL;
 				}
 
-				// stop taking input if the character is not a digit
+				// stop taking input if the character is not a digit or letter
 				if (!isdigit(input[buff]))
 					break;
 
@@ -169,14 +166,14 @@ lexeme *lexanalyzer(char *input)
 			// checking if the number exceeds the maximum length
 			if (i == 5)
 			{
-				//if the input is a digit , which makes number more than 5 digits long, throw excessive number length error
+				// if the input is a digit , which makes number more than 5 digits long, throw excessive number length error
 				if (isdigit(input[buff]))
 				{
 					printerror(3);
 					return NULL;
 				}
 
-				//if the input is not a digit, throw invalid identifier error
+				// if the input is a letter, throw invalid identifier error
 				if (isalpha(input[buff]))
 				{
 					printerror(2);
@@ -184,26 +181,24 @@ lexeme *lexanalyzer(char *input)
 				}
 			}
 
-			//assign numerical token type to the number
+			// assign numerical token type to the number
 			list[lex_index].type = numbersym;
 			list[lex_index].value = 0;
 
-			//convert the array of characters that represents the number into an int type and store it in the value field
+			// convert the array of characters that represents the number into an int type and store it in the value field
 			for (int j = 0; j < i; ++j)
 				list[lex_index].value = 10*list[lex_index].value + number[j] - 48;
 
-			//move the lexeme list array index forward
+			// move the lexeme list array index forward
 			lex_index++;
 			continue;
 		}
 
-		//check if character is a forward slash
+		// check if character is a forward slash
 		if (input[buff] == '/')
 		{
 
-			/*if the next character is not a *, that means it's a regular
-			slash symbol, hence should not be ignored
-			*/
+			// if the next character is not a *, that means it's a regular slash symbol
 			if (input[buff + 1] != '*')
 			{
 				list[lex_index++].type = slashsym;
@@ -211,13 +206,14 @@ lexeme *lexanalyzer(char *input)
 				continue;
 			}
 
+			// we are at the beginning of a comment
 			else
 			{
-				//create a flag to determine if the comment ends or not
+				// create a flag to determine if the comment ends or not
 				int endofcomment = 0;
 				while (input[buff])
 				{
-					//if we encounter * followed by a /, program reached the end of the comment and should exit
+					// if we encounter * followed by a /, program reached the end of the comment and should exit
 					if (input[buff] == '*' && input[buff + 1] == '/')
 					{
 						endofcomment = 1;
@@ -234,7 +230,7 @@ lexeme *lexanalyzer(char *input)
 					return NULL;
 				}
 				
-				//move the buff to "point" at character after the / symbol
+				// move the buff to "point" at character after the / symbol
 				buff += 2;
 				continue;
 			}
@@ -316,7 +312,7 @@ lexeme *lexanalyzer(char *input)
 
 		if (input[buff] == '=' || input[buff] == ':')
 		{	
-			//if the character following "=" or ":" is an "=", then assign a token type based on the preceding character
+			// if the character following "=" or ":" is an "=", then assign a token type based on the preceding character
 			if (input[buff + 1] == '=')
 			{
 				if (input[buff] == '=')
@@ -340,11 +336,11 @@ lexeme *lexanalyzer(char *input)
 		{
 			if (input[buff + 1] == '>' || input[buff + 1] == '=')
 			{
-				//if "<" is followed by ">", then it's a negation operator
+				// if "<" is followed by ">", then it's a negation operator
 				if (input[buff + 1] == '>')
 					list[lex_index++].type = neqsym;
 
-				//if "<" is followed by "=", then it's a "less than or equal to" operator
+				// if "<" is followed by "=", then it's a "less than or equal to" operator
 				else
 					list[lex_index++].type = leqsym;
 
@@ -352,7 +348,7 @@ lexeme *lexanalyzer(char *input)
 				continue;
 			}
 
-			//if "<" is not followed by ">", "=", then assign its token type to be of "less than" operator
+			// if "<" is not followed by ">", "=", then assign its token type to be of "less than" operator
 			else
 			{
 				list[lex_index++].type = lessym;
@@ -363,7 +359,7 @@ lexeme *lexanalyzer(char *input)
 
 		if (input[buff] == '>')
 		{
-			//if ">" is followed by "=", then assign its type to be of "greater than or equal to" operator
+			// if ">" is followed by "=", then assign its type to be of "greater than or equal to" operator
 			if (input[buff + 1] == '=')
 			{
 				list[lex_index++].type = geqsym;
@@ -371,7 +367,7 @@ lexeme *lexanalyzer(char *input)
 				continue;
 			}
 
-			//if ">" is not followed by, "=", then assign its token type to be of "greater than" operator
+			// if ">" is not followed by, "=", then assign its token type to be of "greater than" operator
 			else
 			{
 				list[lex_index++].type = gtrsym;
@@ -387,7 +383,7 @@ lexeme *lexanalyzer(char *input)
 		return NULL;
 	}
 
-	//print the obtained tokens and return the lexeme list
+	// print the obtained tokens and return the lexeme list
 	printtokens();
 	return list;
 }
@@ -398,7 +394,7 @@ void printtokens()
 	printf("Lexeme Table:\n");
 	printf("lexeme\t\ttoken type\n");
 
-	//print the tokens and the token type for each of the lexemes. 
+	// print the tokens and the token type for each of the lexemes. 
 	// if the token is a reserved word, print the keyword, if it is a numerical value, 
 	// print its value, and if it is an identifier, print the variable name
 	for (i = 0; i < lex_index; i++)
@@ -508,7 +504,7 @@ void printtokens()
 		printf("\n");
 	}
 
-	//print the token list, along with values for numerical tokens, and identifier names for identifiers
+	// print the token list, along with values for numerical tokens, and identifier names for identifiers
 	printf("\n");
 	printf("Token List:\n");
 	for (i = 0; i < lex_index; i++)
@@ -524,7 +520,7 @@ void printtokens()
 	list[lex_index++].type = -1;
 }
 
-//throw errors based on the lexical constraints of the PL/0 language
+// throw errors based on the lexical constraints of the PL/0 language
 void printerror(int type)
 {
 	if (type == 1)
