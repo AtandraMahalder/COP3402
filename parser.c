@@ -13,7 +13,7 @@ int error;
 int token = 0;
 
 void printtable();
-void errorend(int x);
+void errorend(int);
 void block(lexeme*, int, int);
 void constdecl(lexeme*);
 void vardecl(lexeme*, int, int);
@@ -21,6 +21,9 @@ void procdecl(lexeme*, int);
 void statement(lexeme*);
 void expression(lexeme*);
 void condition(lexeme*);
+void expression(lexeme*);
+void term(lexeme*);
+void factor(lexeme*);
 
 symbol *parse(lexeme *input)
 {
@@ -29,7 +32,7 @@ symbol *parse(lexeme *input)
 	error = 0;
 	table[sym_index].kind = 3;
 	strcpy(table[sym_index].name, "main");
-	table[sym_index].value = 0;
+	table[sym_index].value = 0;   /* the property in compiler.h file was "val" */
 	table[sym_index].level = 0;
 	table[sym_index].addr = 0;
 	sym_index++;
@@ -104,7 +107,7 @@ void constdecl(lexeme *input)
 		}
 
 		table[sym_index].kind = 1;
-		table[sym_index].name = input[token - 2].name;
+		strcpy(table[sym_index].name, input[token - 2].name);
 		table[sym_index].value = input[token].value;
 		table[sym_index].level = 0;
 		table[sym_index].addr = 0;
@@ -136,7 +139,7 @@ void vardecl(lexeme *input, int lexlevel, int nextaddress)
 		}
 
 		table[sym_index].kind = 2;
-		table[sym_index].name = input[token].name;
+		strcpy(table[sym_index].name, input[token].name);
 		table[sym_index].value = 0;
 		table[sym_index].addr = nextaddress++;
 		table[sym_index].level = lexlevel;
@@ -169,7 +172,7 @@ void procdecl(lexeme *input, int lexlevel)
 		}
 
 		table[sym_index].kind = 3;
-		table[sym_index].name = input[token].name;
+		strcpy(table[sym_index].name, input[token].name);
 		table[sym_index].value = 0;
 		table[sym_index].level = lexlevel;
 		table[sym_index].addr = 0;       // doubtful
@@ -283,7 +286,82 @@ void statement(lexeme *input)
 	}
 }
 
+void condition(lexeme* input) 
+{
+	if (input[token].type == oddsym)
+	{
+		token++;
+		expression(input);
+	}
 
+	else
+	{
+		expression(input);
+
+		if (input[token].type != eqlsym || input[token].type != neqsym || input[token].type != lessym || input[token].type != leqsym || input[token].type != gtrsym || input[token].type != geqsym)
+		{
+			errorend(12);
+			error = 1;
+			return;
+		}
+
+		token++;
+		expression(input);
+	}
+}
+
+void expression(lexeme* input)
+{
+	if (input[token].type == plussym)
+		token++;
+	
+	term(input); 
+	
+	while (input[token].type == plussym){
+		token++;
+		term(input);
+	}
+}
+
+
+void term(lexeme* input){
+	factor(input);
+
+	while (input[token].type == multsym){
+		token++;
+		factor(input);
+	}
+}
+
+void factor(lexeme* input){
+	if (input[token].type == identsym)
+		token++;
+	
+	else if (input[token].type == numbersym)
+		token++;
+	
+	else if (input[token].type == lparentsym)
+	{
+		token++;
+		expression(input);
+
+		if (input[token].type != rparentsym)
+		{
+			errorend(13);
+			error = 1;
+			return;
+		}
+
+		token++;
+	}
+
+	else
+	{
+		errorend(666);
+		error = 1;
+		return;
+	}
+}
 
 void errorend(int x)
 {
@@ -347,4 +425,3 @@ void printtable()
 	for (i = 0; i < sym_index; i++)
 		printf("%4d | %11s | %5d | %5d\n", table[i].kind, table[i].name, table[i].value, table[i].level, table[i].addr);
 }
-*/
