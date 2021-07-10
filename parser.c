@@ -18,7 +18,9 @@ void block(lexeme*, int, int);
 void constdecl(lexeme*);
 void vardecl(lexeme*, int, int);
 void procdecl(lexeme*, int);
-void statement(lexeme*, int, int);
+void statement(lexeme*);
+void expression(lexeme*);
+void condition(lexeme*);
 
 symbol *parse(lexeme *input)
 {
@@ -34,7 +36,7 @@ symbol *parse(lexeme *input)
 
 	block(input, 0, 3);
 
-	if (token == lex_index || input[token].type != periodsym)
+	if (input[token].type != periodsym)
 	{
 		errorend(3);
 		error = 1;
@@ -54,33 +56,31 @@ symbol *parse(lexeme *input)
 
 void block(lexeme *input, int lexlevel, int nextaddress)
 {
-	if (error)
-		return;
-
-	if (token == lex_index)
-		return;
-
 	if (input[token].type == constsym)
-		constdecl(input, lexlevel, nextaddress);
+		constdecl(input);
 	else if (input[token].type == varsym)
 		vardecl(input, lexlevel, nextaddress);
 	else if (input[token].type == procsym)
-		procdecl(input, lexlevel, nextaddress);
+		procdecl(input, lexlevel);
+	else
+	{
+		errorend(666);
+		error = 1;
+		return;
+	}
 
-	token++;
-	statement(input, lexlevel, nextaddress);
+	if (error)
+		return;
+
+	statement(input);
 }
 
 void constdecl(lexeme *input)
 {
-	if (error)
-		return;
-
-	token++;
-
 	do
 	{
-		if (token == lex_index || input[token].type != identsym)
+		token++;
+		if (input[token].type != identsym)
 		{
 			errorend(4);
 			error = 1;
@@ -88,7 +88,7 @@ void constdecl(lexeme *input)
 		}
 
 		token++;
-		if (token == lex_index || input[token].type != eqlsym)
+		if (input[token].type != eqlsym)
 		{
 			errorend(666);
 			error = 1;
@@ -96,7 +96,7 @@ void constdecl(lexeme *input)
 		}
 
 		token++;
-		if (token == lex_index || input[token].type != numbersym)
+		if (input[token].type != numbersym)
 		{
 			errorend(5);
 			error = 1;
@@ -111,27 +111,24 @@ void constdecl(lexeme *input)
 		table[sym_index].mark = 0;
 		sym_index++;
 		token++;
-	} while (token < lex_index && input[token].type == commasym);
+	} while (input[token].type == commasym);
 
-	if (token == lex_index || input[token].type != semicolonsym)
+	if (input[token].type != semicolonsym)
 	{
 		errorend(6);
 		error = 1;
 		return;
 	}
+
 	token++;
 }
 
 void vardecl(lexeme *input, int lexlevel, int nextaddress)
 {
-	if (error)
-		return;
-
-	token++;
-
 	do
 	{
-		if (token == lex_index || input[token].type != identsym)
+		token++;
+		if (input[token].type != identsym)
 		{
 			errorend(4);
 			error = 1;
@@ -146,9 +143,9 @@ void vardecl(lexeme *input, int lexlevel, int nextaddress)
 		table[sym_index].mark = 0;
 		sym_index++;
 		token++;
-	} while (token < lex_index && input[token].type == commasym);
+	} while (input[token].type == commasym);
 
-	if (token == lex_index || input[token].type != semicolonsym)
+	if (input[token].type != semicolonsym)
 	{
 		errorend(6);
 		error = 1;
@@ -160,14 +157,11 @@ void vardecl(lexeme *input, int lexlevel, int nextaddress)
 
 void procdecl(lexeme *input, int lexlevel)
 {
-	if (error)
-		return;
-
-	while (token < lex_index && input[token].type == procsym)
+	while (input[token].type == procsym)
 	{
 		token++;
 
-		if (token == lex_index || input[token] != identsym)
+		if (input[token].type != identsym)
 		{
 			errorend(4);
 			error = 1;
@@ -184,9 +178,112 @@ void procdecl(lexeme *input, int lexlevel)
 
 		token++;
 		block(input, lexlevel + 1, 3);
+
+		if (error)
+		 	return;
+
 		token++;
 	}
 }
+
+void statement(lexeme *input)
+{
+	if (input[token].type == identsym)
+	{
+		token++;
+
+		if (input[token].type != becomessym)
+		{
+			errorend(666);
+			error = 1;
+			return;
+		}
+
+		token++;
+		expression(input);
+	}
+
+	else if (input[token].type == callsym)
+	{
+		token++;
+
+		if (input[token].type != identsym)
+		{
+			errorend(14);
+			error = 1;
+			return;
+		}
+
+		token++;
+	}
+
+	else if (input[token].type == beginsym)
+	{
+		token++;
+		statement(input);
+
+		if (error)
+			return;
+
+		while (input[token].type == semicolonsym)
+		{
+			token++;
+			statement(input);
+
+			if (error)
+				return;
+		}
+
+		if (input[token].type != endsym)
+		{
+			errorend(10);
+			error = 1;
+			return;
+		}
+
+		token++;
+	}
+
+	else if (input[token].type == ifsym)
+	{
+		token++;
+		condition(input);
+
+		if (error)
+			return;
+
+		if (input[token].type != thensym)
+		{
+			errorend(9);
+			error = 1;
+			return;
+		}
+
+		token++;
+		statement(input);
+	}
+
+	else if (input[token].type == whilesym)
+	{
+		token++;
+		condition(input);
+
+		if (error)
+			return;
+
+		if (input[token].type != dosym)
+		{
+			errorend(8);
+			error = 1;
+			return;
+		}
+
+		token++;
+		statement(input);
+	}
+}
+
+
 
 void errorend(int x)
 {
@@ -250,3 +347,4 @@ void printtable()
 	for (i = 0; i < sym_index; i++)
 		printf("%4d | %11s | %5d | %5d\n", table[i].kind, table[i].name, table[i].value, table[i].level, table[i].addr);
 }
+*/
