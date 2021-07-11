@@ -5,6 +5,9 @@
 // in the end resolve conflicts of multiple symbols
 // and undeclared symbols
 
+
+//we also need to check for error case 11: while and if statements must contain conditions
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -103,7 +106,7 @@ void constdecl(lexeme *input)
 		token++;
 		if (input[token].type != becomessym)
 		{
-			errorend(666);
+			errorend(5); /* doubtful */
 			error = 1;
 			return;
 		}
@@ -191,7 +194,7 @@ void procdecl(lexeme *input, int lexlevel)
 		token++;
 		if (input[token].type != semicolonsym)
 		{
-			errorend(666);
+			errorend(6); // doubtful
 			error = 1;
 			return;
 		}
@@ -204,7 +207,7 @@ void procdecl(lexeme *input, int lexlevel)
 
 		if (input[token].type != semicolonsym)
 		{
-			errorend(666);
+			errorend(6); // doubtful
 			error = 1;
 			return;
 		}
@@ -223,7 +226,7 @@ void statement(lexeme *input)
 		token++;
 		if (input[token].type != becomessym)
 		{
-			errorend(666);
+			errorend(2);  // doubtful
 			error = 1;
 			return;
 		}
@@ -356,7 +359,7 @@ void condition(lexeme* input)
 		if (error)
 			return;
 
-		if (input[token].type != eqlsym && input[token].type != neqsym && input[token].type != lessym && input[token].type != leqsym && input[token].type != gtrsym && input[token].type != geqsym)
+		if (input[token].type != eqlsym || input[token].type != neqsym || input[token].type != lessym || input[token].type != leqsym || input[token].type != gtrsym || input[token].type != geqsym)
 		{
 			errorend(12);
 			error = 1;
@@ -418,7 +421,7 @@ void factor(lexeme* input)
 	{
 		if (input[token].type != lparentsym)
 		{
-			errorend(666);
+			errorend(2);  // doubtful
 			error = 1;
 			return;
 		}
