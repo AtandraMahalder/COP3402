@@ -1,5 +1,6 @@
 /*
-	Author: Noelle Midkiff
+	Date: 11 July, 2021
+	Authors: Atandra Mahalder, Emin Mammadzada
 */
 
 // figure out how to handle errors correctly
@@ -29,7 +30,7 @@ void vardecl(lexeme*, int, int);
 void procdecl(lexeme*, int);
 void statement(lexeme*);
 void expression(lexeme*);
-void condition(lexeme*);
+int condition(lexeme*);
 void term(lexeme*);
 void factor(lexeme*);
 
@@ -159,7 +160,7 @@ void constdecl(lexeme *input, int lexlevel)
 		token++;
 		if (input[token].type != becomessym)
 		{
-			errorend(666);
+			errorend(5); //doubt
 			error = 1;
 			return;
 		}
@@ -256,7 +257,7 @@ void procdecl(lexeme *input, int lexlevel)
 		token++;
 		if (input[token].type != semicolonsym)
 		{
-			errorend(666);
+			errorend(6);//doubt
 			error = 1;
 			return;
 		}
@@ -271,7 +272,7 @@ void procdecl(lexeme *input, int lexlevel)
 
 		if (input[token].type != semicolonsym)
 		{
-			errorend(666);
+			errorend(6); //doubt
 			error = 1;
 			return;
 		}
@@ -295,7 +296,7 @@ void statement(lexeme *input)
 		token++;
 		if (input[token].type != becomessym)
 		{
-			errorend(666);
+			errorend(2); //doubt
 			error = 1;
 			return;
 		}
@@ -353,10 +354,14 @@ void statement(lexeme *input)
 	else if (input[token].type == ifsym)
 	{
 		token++;
-		condition(input);
 
-		if (error)
+		//checking for error 11
+		if(!condition(input))
+		{
+			errorend(11);
+			error = 1;
 			return;
+		}
 
 		if (input[token].type != thensym)
 		{
@@ -381,10 +386,14 @@ void statement(lexeme *input)
 	else if (input[token].type == whilesym)
 	{
 		token++;
-		condition(input);
 
-		if (error)
+		//checking for error 11
+		if(!condition(input))
+		{
+			errorend(11);
+			error = 1;
 			return;
+		}
 
 		if (input[token].type != dosym)
 		{
@@ -423,7 +432,7 @@ void statement(lexeme *input)
 	}
 }
 
-void condition(lexeme* input)
+int condition(lexeme* input)
 {
 	if (input[token].type == oddsym)
 	{
@@ -436,18 +445,23 @@ void condition(lexeme* input)
 		expression(input);
 
 		if (error)
-			return;
+			return 0;
 
-		if (input[token].type != eqlsym && input[token].type != neqsym && input[token].type != lessym && input[token].type != leqsym && input[token].type != gtrsym && input[token].type != geqsym)
+
+		//come here later
+		if (input[token].type != eqlsym || input[token].type != neqsym || input[token].type != lessym || input[token].type != leqsym || input[token].type != gtrsym || input[token].type != geqsym)
 		{
 			errorend(12);
 			error = 1;
-			return;
+			return 0;
 		}
 
 		token++;
 		expression(input);
 	}
+
+	//change for error 11
+	return 1;
 }
 
 void expression(lexeme* input)
@@ -500,7 +514,7 @@ void factor(lexeme* input)
 	{
 		if (input[token].type != lparentsym)
 		{
-			errorend(666);
+			errorend(2); //doubt
 			error = 1;
 			return;
 		}
