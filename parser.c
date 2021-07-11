@@ -2,8 +2,10 @@
 	Author: Noelle Midkiff
 */
 
-// in the end resolve conflicts of multiple symbols
-// and undeclared symbols
+// figure out how to handle errors correctly
+// program works and detects errors but prints wrong
+// error message in many cases
+// may have to change function return type to handle that
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -15,11 +17,14 @@ int sym_index;
 int error;
 int token = 0;
 
+void mark();
+void identundeclared(char*);
+void identconflict(char*, int);
 void printtable();
 void errorend(int x);
 
 void block(lexeme*, int, int);
-void constdecl(lexeme*);
+void constdecl(lexeme*, int);
 void vardecl(lexeme*, int, int);
 void procdecl(lexeme*, int);
 void statement(lexeme*);
@@ -52,24 +57,70 @@ symbol *parse(lexeme *input)
 	{
 		errorend(3);
 		error = 1;
-	}
-
-	if (error)
-	{
 		free(table);
 		return NULL;
 	}
-	else
+
+	printtable();
+	return table;
+}
+
+void identconflict(char *name, int lexlevel)
+{
+	int i = sym_index - 1;
+	while (i >= 0)
 	{
-		printtable();
-		return table;
+		if (!strcmp(table[i].name, name) && !table[i].mark && table[i].level == lexlevel)
+		{
+			errorend(1);
+			error = 1;
+			return;
+		}
+
+		i--;
+	}
+}
+
+void identundeclared(char *name)
+{
+	int i = sym_index - 1;
+	while (i >= 0)
+	{
+		if (!strcmp(table[i].name, name) && !table[i].mark)
+			break;
+
+		i--;
+	}
+
+	if (i == -1)
+	{
+		errorend(7);
+		error = 1;
+		return;
+	}
+}
+
+void mark()
+{
+	table[sym_index - 1].mark = 1;
+	int level_deleted = table[sym_index - 1].level;
+
+	int i = sym_index - 2;
+	while (i >= 0)
+	{
+		if (table[i].level == level_deleted)
+			table[i].mark = 1;
+		else
+			break;
+
+		i--;
 	}
 }
 
 void block(lexeme *input, int lexlevel, int nextaddress)
 {
 	if (input[token].type == constsym)
-		constdecl(input);
+		constdecl(input, lexlevel);
 
 	if (error)
 		return;
@@ -88,7 +139,7 @@ void block(lexeme *input, int lexlevel, int nextaddress)
 	statement(input);
 }
 
-void constdecl(lexeme *input)
+void constdecl(lexeme *input, int lexlevel)
 {
 	do
 	{
@@ -99,6 +150,11 @@ void constdecl(lexeme *input)
 			error = 1;
 			return;
 		}
+
+		identconflict(input[token].name, lexlevel);
+
+		if (error)
+			return;
 
 		token++;
 		if (input[token].type != becomessym)
@@ -119,7 +175,7 @@ void constdecl(lexeme *input)
 		table[sym_index].kind = 1;
 		strcpy(table[sym_index].name, input[token - 2].name);
 		table[sym_index].val = input[token].value;
-		table[sym_index].level = 0;
+		table[sym_index].level = lexlevel;
 		table[sym_index].addr = 0;
 		table[sym_index].mark = 0;
 		sym_index++;
@@ -147,6 +203,10 @@ void vardecl(lexeme *input, int lexlevel, int nextaddress)
 			error = 1;
 			return;
 		}
+
+		identconflict(input[token].name, lexlevel);
+		if (error)
+			return;
 
 		table[sym_index].kind = 2;
 		strcpy(table[sym_index].name, input[token].name);
@@ -180,11 +240,16 @@ void procdecl(lexeme *input, int lexlevel)
 			return;
 		}
 
+		identconflict(input[token].name, lexlevel);
+
+		if (error)
+			return;
+
 		table[sym_index].kind = 3;
 		strcpy(table[sym_index].name, input[token].name);
 		table[sym_index].val = 0;
 		table[sym_index].level = lexlevel;
-		table[sym_index].addr = 0;       // doubtful
+		table[sym_index].addr = 0;
 		table[sym_index].mark = 0;
 		sym_index++;
 
@@ -201,6 +266,8 @@ void procdecl(lexeme *input, int lexlevel)
 
 		if (error)
 		 	return;
+
+		mark();
 
 		if (input[token].type != semicolonsym)
 		{
@@ -220,6 +287,11 @@ void statement(lexeme *input)
 
 	else if (input[token].type == identsym)
 	{
+		identundeclared(input[token].name);
+
+		if (error)
+			return;
+
 		token++;
 		if (input[token].type != becomessym)
 		{
@@ -235,6 +307,12 @@ void statement(lexeme *input)
 	else if (input[token].type == callsym)
 	{
 		token++;
+
+		identundeclared(input[token].name);
+
+		if (error)
+			return;
+
 		if (input[token].type != identsym)
 		{
 			errorend(14);
@@ -322,6 +400,12 @@ void statement(lexeme *input)
 	else if (input[token].type == readsym)
 	{
 		token++;
+
+		identundeclared(input[token].name);
+
+		if (error)
+			return;
+
 		if (input[token].type != identsym)
 		{
 			errorend(14);
@@ -337,8 +421,6 @@ void statement(lexeme *input)
 		token++;
 		expression(input);
 	}
-
-	// condition left for e
 }
 
 void condition(lexeme* input)
