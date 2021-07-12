@@ -7,6 +7,11 @@
 // program works and detects errors but prints wrong
 // error message in many cases
 // may have to change function return type to handle that
+// return different integers to show what error message
+// has been printed:
+// 0 if there is an error and no message has been printed
+// 1 if there is no error
+// 2 if there is an error and a mesage has been printed
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -29,10 +34,10 @@ void constdecl(lexeme*, int);
 void vardecl(lexeme*, int, int);
 void procdecl(lexeme*, int);
 void statement(lexeme*);
-void expression(lexeme*);
+int expression(lexeme*);
 int condition(lexeme*);
-void term(lexeme*);
-void factor(lexeme*);
+int term(lexeme*);
+int factor(lexeme*);
 
 symbol *parse(lexeme *input)
 {
@@ -57,7 +62,6 @@ symbol *parse(lexeme *input)
 	if (input[token].type != periodsym)
 	{
 		errorend(3);
-		error = 1;
 		free(table);
 		return NULL;
 	}
@@ -257,7 +261,7 @@ void procdecl(lexeme *input, int lexlevel)
 		token++;
 		if (input[token].type != semicolonsym)
 		{
-			errorend(6);//doubt
+			errorend(6); //doubt
 			error = 1;
 			return;
 		}
@@ -283,10 +287,7 @@ void procdecl(lexeme *input, int lexlevel)
 
 void statement(lexeme *input)
 {
-	if (input[token].type == semicolonsym)
-		token++;
-
-	else if (input[token].type == identsym)
+	if (input[token].type == identsym)
 	{
 		identundeclared(input[token].name);
 
@@ -296,13 +297,22 @@ void statement(lexeme *input)
 		token++;
 		if (input[token].type != becomessym)
 		{
-			errorend(2); //doubt
+			errorend(2); // doubt
 			error = 1;
 			return;
 		}
 
 		token++;
-		expression(input);
+
+		int ret = expression(input);
+
+		if (ret == 0)
+		{
+			errorend(2);
+			return;
+		}
+		else if (ret == 2)
+			return;
 	}
 
 	else if (input[token].type == callsym)
@@ -355,13 +365,16 @@ void statement(lexeme *input)
 	{
 		token++;
 
-		//checking for error 11
-		if(!condition(input))
+		// checking for error 11
+		int ret = condition(input);
+
+		if (ret == 0)
 		{
 			errorend(11);
-			error = 1;
 			return;
 		}
+		else if (ret == 2)
+			return;
 
 		if (input[token].type != thensym)
 		{
@@ -387,13 +400,17 @@ void statement(lexeme *input)
 	{
 		token++;
 
-		//checking for error 11
-		if(!condition(input))
+		// checking for error 11
+		int ret = condition(input);
+
+		if (ret == 0)
 		{
 			errorend(11);
 			error = 1;
 			return;
 		}
+		else if (ret == 2)
+			return;
 
 		if (input[token].type != dosym)
 		{
@@ -428,7 +445,10 @@ void statement(lexeme *input)
 	else if (input[token].type == writesym)
 	{
 		token++;
-		expression(input);
+		int ret = expression(input);
+
+		if (ret == 0)
+			errorend(2);
 	}
 }
 
@@ -437,103 +457,138 @@ int condition(lexeme* input)
 	if (input[token].type == oddsym)
 	{
 		token++;
-		expression(input);
+		int ret = expression(input);
+
+		if (ret == 0)
+			return 0;
+		else if (ret == 2)
+			return 2;
+
+		return 1;
 	}
 
-	else
+	int exp = expression(input);
+
+	if (exp == 0)
+		return 0;
+	else if (exp == 2)
+		return 2;
+
+	// apply De-Morgan's law. Think of the conditions when there is a relational
+	// operator and negate that condition to generate error condition
+	if (input[token].type != eqlsym && input[token].type != neqsym && input[token].type != lessym && input[token].type != leqsym && input[token].type != gtrsym && input[token].type != geqsym)
 	{
-		expression(input);
-
-		if (error)
-			return 0;
-
-
-		//come here later
-		if (input[token].type != eqlsym || input[token].type != neqsym || input[token].type != lessym || input[token].type != leqsym || input[token].type != gtrsym || input[token].type != geqsym)
-		{
-			errorend(12);
-			error = 1;
-			return 0;
-		}
-
-		token++;
-		expression(input);
+		errorend(12);
+		error = 1;
+		return 2;
 	}
+
+	token++;
+
+	exp = expression(input);
+
+	if (exp == 0)
+		return 0;
+	else if (exp == 2)
+		return 2;
 
 	//change for error 11
 	return 1;
 }
 
-void expression(lexeme* input)
+int expression(lexeme* input)
 {
 	if (input[token].type == plussym || input[token].type == minussym)
 		token++;
 
-	term(input);
+	int t = term(input);
 
-	if (error)
-		return;
+	if (t == 0)
+		return 0;
+	else if (t == 2)
+		return 2;
 
 	while (input[token].type == plussym || input[token].type == minussym)
 	{
 		token++;
-		term(input);
+		t = term(input);
 
-		if (error)
-			return;
+		if (t == 0)
+			return 0;
+		else if (t == 2)
+			return 2;
 	}
+
+	return 1;
 }
 
 
-void term(lexeme* input)
+int term(lexeme* input)
 {
-	factor(input);
+	int f = factor(input);
 
-	if (error)
-		return;
+	if (f == 0)
+		return 0;
+	else if (f == 2)
+		return 2;
 
 	while (input[token].type == multsym || input[token].type == slashsym || input[token].type == modsym)
 	{
 		token++;
-		factor(input);
+		f = factor(input);
 
-		if (error)
-			return;
+		if (f == 0)
+			return 0;
+		else if (f == 2)
+			return 2;
 	}
+
+	return 1;
 }
 
-void factor(lexeme* input)
+int factor(lexeme* input)
 {
 	if (input[token].type == identsym)
-		token++;
-
-	else if (input[token].type == numbersym)
-		token++;
-
-	else
 	{
-		if (input[token].type != lparentsym)
-		{
-			errorend(2); //doubt
-			error = 1;
-			return;
-		}
-
-		token++;
-		expression(input);
+		identundeclared(input[token].name);
 
 		if (error)
-			return;
+			return 2;
+
+		token++;
+
+		return 1;
+	}
+
+	else if (input[token].type == numbersym)
+	{
+		token++;
+		return 1;
+	}
+
+	else if (input[token].type == lparentsym)
+	{
+		token++;
+		int exp = expression(input);
+
+		if (exp == 0)
+			return 0;
+		else if (exp == 2)
+			return 2;
 
 		if (input[token].type != rparentsym)
 		{
 			errorend(13);
 			error = 1;
-			return;
+			return 2;
 		}
 
 		token++;
+
+		return 1;
 	}
+
+	return 0;
 }
 
 void errorend(int x)
