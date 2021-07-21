@@ -1,20 +1,7 @@
 /*
-	COP3402. Project 3.
-	Authors: Atandra Mahalder, Emin Mammadzada.
-	Date: July 14, 2021.
+	Author: Noelle Midkiff
+	Modified: Atandra Mahalder
 */
-
-
-
-/*
-NOTE: 
-When returning from functions, there are 3 cases: returning 0, 1, or 2
-
-0 -- error was detected but message was not printed
-1 -- no error
-2 -- error was detected and message was printed
-*/
-
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -22,27 +9,31 @@ When returning from functions, there are 3 cases: returning 0, 1, or 2
 #include "compiler.h"
 
 symbol *table;
+lexeme *lex;
+int token;
 int sym_index;
 int error;
-int token = 0;
 
-void mark(); 					// "delete" (mark as unavailable) local variables when program exits the given prodedure
-void identundeclared(char*);	// catch the error associated with undeclared variables
-void identconflict(char*, int); // catch the error associated with competing symbol declarations
-void printtable();				// print the resulting symbol table
-void errorend(int x);			//end the execution of the program and print the corresponding error message
+void identconflict(char*, int);
+void identundeclared(char*);
+void mark(int);
+void printtable();
+void errorend(int x);
 
-
-/* Procedures for syntactic classes of the PL/0 language */
-void block(lexeme*, int, int);
-void constdecl(lexeme*, int);
-void vardecl(lexeme*, int, int);
-void procdecl(lexeme*, int);
-void statement(lexeme*);
-int expression(lexeme*);
-int condition(lexeme*);
-int term(lexeme*);
-int factor(lexeme*);
+void block(int, int);
+void constdecl(int);
+void const_decl(int);
+void vardecl(int, int);
+void var_decl(int, int);
+void procdecl(int);
+void statement();
+void state_ment();
+void condition();
+void expression();
+void term();
+void te_rm();
+void factor();
+void fac_tor();
 
 symbol *parse(lexeme *input)
 {
@@ -50,42 +41,60 @@ symbol *parse(lexeme *input)
 	sym_index = 0;
 	error = 0;
 
-    //first entry of the table is the main procedure
+	lex = input;
+	token = 0;
+
+	if (lex[token].type != constsym && lex[token].type != varsym && lex[token].type != procsym
+		&& lex[token].type !=identsym && lex[token].type != callsym && lex[token].type != beginsym
+		&& lex[token].type != ifsym && lex[token].type != whilesym && lex[token].type != readsym
+		&& lex[token].type != writesym && lex[token].type != periodsym)
+	{
+		errorend(2);
+		free(table);
+		return NULL;
+	}
+
 	table[sym_index].kind = 3;
 	strcpy(table[sym_index].name, "main");
 	table[sym_index].val = 0;
 	table[sym_index].level = 0;
 	table[sym_index].addr = 0;
-	sym_index++; //move the symbol table pointer forward
+	table[sym_index].mark = 0;
+	sym_index++;
 
-	block(input, 0, 3); //calling the block function and passing the lexicographical level and the address in the stack where variables can be stored
+	block(0, 3);
 
-	if (error) //free the symbol table and don't return anything if there was an error
+	if(error)
 	{
 		free(table);
 		return NULL;
 	}
 
-	if (input[token].type != periodsym) //throw an error if the program does not finish with a "." symbol
+	if (lex[token].type != periodsym)
 	{
 		errorend(3);
+		error = 1;
+	}
+
+	if (error)
+	{
 		free(table);
 		return NULL;
 	}
-
-    //otherwise, print the resulting symbol table and return it
-	printtable();
-	return table;
+	else
+	{
+		printtable();
+		return table;
+	}
 }
 
-void identconflict(char *name, int lexlevel)
+void identconflict(char *name, int level)
 {
 	int i = sym_index - 1;
+
 	while (i >= 0)
 	{
-        //	if the variable names are same and identifier is not marked 
-		// and they are on the same lexicographical level: throw conflicting identifier error
-		if (!strcmp(table[i].name, name) && !table[i].mark && table[i].level == lexlevel)
+		if (!strcmp(table[i].name, name) && table[i].level == level && !table[i].mark)
 		{
 			errorend(1);
 			error = 1;
@@ -99,528 +108,617 @@ void identconflict(char *name, int lexlevel)
 void identundeclared(char *name)
 {
 	int i = sym_index - 1;
+
 	while (i >= 0)
 	{
-        //if we found the identifier in the symbol table and it's not marked: no errors thrown...
 		if (!strcmp(table[i].name, name) && !table[i].mark)
-			break;
+			return;
 
 		i--;
 	}
 
-    // ...otherwise, throw undeclared symbol error
-	if (i == -1)
-	{
-		errorend(7);
-		error = 1;
-		return;
-	}
+	errorend(7);
+	error = 1;
 }
 
-void mark()
+void mark(int level)
 {
-	table[sym_index - 1].mark = 1; //mark the symbol
-	int level_deleted = table[sym_index - 1].level; //detect the level of the symbol
+	int i = sym_index - 1;
 
-	int i = sym_index - 2;
-
-    //mark all other symbols on that lex level
 	while (i >= 0)
 	{
-		if (table[i].level == level_deleted)
+		if (table[i].level == level)
 			table[i].mark = 1;
-		else
-			break;
 
 		i--;
 	}
 }
 
-void block(lexeme *input, int lexlevel, int nextaddress)
+void block(int level, int nextaddress)
 {
-	if (input[token].type == constsym)	//if the token from lexeme list is const
-		constdecl(input, lexlevel);
+	if (lex[token].type == constsym || lex[token].type == varsym || lex[token].type == procsym
+		|| lex[token].type == identsym || lex[token].type == callsym || lex[token].type == beginsym
+		|| lex[token].type == ifsym || lex[token].type == whilesym || lex[token].type == readsym
+		|| lex[token].type == writesym)
+	{
+		constdecl(level);
+		if (error)
+			return;
 
-	if (error) //return to the caller function if an error was thrown when calling constdecl()
+		vardecl(level, nextaddress);
+		if (error)
+			return;
+
+		procdecl(level);
+		if (error)
+			return;
+
+		statement();
+	}
+	else if (lex[token].type == semicolonsym || lex[token].type == periodsym)
 		return;
-
-	if (input[token].type == varsym) //if the token from lexeme list is var
-		vardecl(input, lexlevel, nextaddress); 
-
-	if (error)	//return to the caller function if an error was thrown when calling vardecl()
-		return;
-
-	procdecl(input, lexlevel); //if the token from lexeme list is procedure
-
-	if (error)	//return to the caller function if an error was thrown when calling procdecl()
-		return;
-
-	statement(input); 
+	else
+	{
+		errorend(2);
+		error = 1;
+	}
 }
 
-void constdecl(lexeme *input, int lexlevel)
+void constdecl(int level)
 {
-	do
+	if (lex[token].type == constsym)
 	{
-		token++;    //get the next token
-		if (input[token].type != identsym)  //if the token after "const" is not identifier: throw error and return to the caller
+		token++;
+		if (lex[token].type != identsym)
 		{
 			errorend(4);
 			error = 1;
 			return;
 		}
 
-		identconflict(input[token].name, lexlevel); //check if there are any identifier conflicts
-
-		if (error)  //return to the caller if there was competing symbol declarations error
+		identconflict(lex[token].name, level);
+		if (error)
 			return;
 
-		token++;    //get next token
-
-		// if there is no "becomes" operator,
-		//then throw an error "consts must be assigned a value at declarations"
-		if (input[token].type != becomessym)	
+		token++;
+		if (lex[token].type != becomessym)
 		{
-			errorend(5); 
+			errorend(2);
 			error = 1;
 			return;
 		}
 
-		token++; //get next token
-
-		// if there is no number following "const",
-		//then throw an error "consts must be assigned a value at declarations"
-		if (input[token].type != numbersym)
+		token++;
+		if (lex[token].type != numbersym)
 		{
 			errorend(5);
 			error = 1;
 			return;
 		}
 
-		//if no errors detected, fill the symbol table with consts seperated by comma
 		table[sym_index].kind = 1;
-		strcpy(table[sym_index].name, input[token - 2].name);
-		table[sym_index].val = input[token].value;
-		table[sym_index].level = lexlevel;
+		strcpy(table[sym_index].name, lex[token - 2].name);
+		table[sym_index].val = lex[token].value;
+		table[sym_index].level = level;
 		table[sym_index].addr = 0;
 		table[sym_index].mark = 0;
-		sym_index++;	//move the symbol table pointer forward
-		token++;		//get next token
-	} while (input[token].type == commasym);
+		sym_index++;
 
-	if (input[token].type != semicolonsym)	//if symbol declarations are not ending with a semicolon, then throw an error
-	{
-		errorend(6);
-		error = 1;
-		return;
-	}
-
-	token++;	//get next token
-}
-
-void vardecl(lexeme *input, int lexlevel, int nextaddress)
-{
-	do
-	{
-		token++; //get next token
-		if (input[token].type != identsym) //if the token after "var" is not identifier: throw error and return to the caller
-		{
-			errorend(4);
-			error = 1;
-			return;
-		}
-
-		identconflict(input[token].name, lexlevel); //check if there are any identifier conflicts
-
-		if (error) //return to the caller if there was competing symbol declarations error
+		token++;
+		const_decl(level);
+		if (error)
 			return;
 
-
-		//if no errors detected, fill the symbol table with vars seperated by comma
-		table[sym_index].kind = 2;
-		strcpy(table[sym_index].name, input[token].name);
-		table[sym_index].val = 0;
-		table[sym_index].addr = nextaddress++;
-		table[sym_index].level = lexlevel;
-		table[sym_index].mark = 0;
-		sym_index++;	//move the symbol table pointer forward
-		token++;		//get next token
-	} while (input[token].type == commasym);
-
-	if (input[token].type != semicolonsym) //if symbol declarations are not ending with a semicolon, then throw an error
-	{
-		errorend(6);
-		error = 1;
-		return;
-	}
-
-	token++; //get next token
-}
-
-void procdecl(lexeme *input, int lexlevel)
-{
-	while (input[token].type == procsym)
-	{
-		token++; //get next token
-		if (input[token].type != identsym)  //if the token after "procedure" is not identifier: throw error and return to the caller
-		{
-			errorend(4);
-			error = 1;
-			return;
-		}
-
-		identconflict(input[token].name, lexlevel); //check if there are any identifier conflicts
-
-		if (error) //return to the caller if there was competing symbol declarations error
-			return;
-
-		//if no errors detected, fill the symbol table with procedure data
-		table[sym_index].kind = 3;
-		strcpy(table[sym_index].name, input[token].name);
-		table[sym_index].val = 0;
-		table[sym_index].level = lexlevel;
-		table[sym_index].addr = 0;
-		table[sym_index].mark = 0;
-		sym_index++;	//move the symbol table pointer forward
-		token++;		//get next token
-
-		if (input[token].type != semicolonsym) //if symbol declarations are not ending with a semicolon, then throw an error
-		{
-			errorend(6); 
-			error = 1;
-			return;
-		}
-
-		token++; //get next token
-		block(input, lexlevel + 1, 3);	//create a new prodecure block with a new lexicographical level and new AR
-
-		if (error)	//return to the caller if there was an error when creating a new block
-		 	return;
-
-		mark();	//mark all the variables at this variable before entering procedure block 
-
-		if (input[token].type != semicolonsym)	//if symbol declarations are not ending with a semicolon, then throw an error
+		if (lex[token].type != semicolonsym)
 		{
 			errorend(6);
 			error = 1;
 			return;
 		}
 
-		token++; //get next token
+		token++;
 	}
-}
-
-void statement(lexeme *input)
-{
-	if (input[token].type == identsym) //if the token is an identifier
+	else if (lex[token].type == varsym || lex[token].type == procsym || lex[token].type == callsym
+			|| lex[token].type == identsym || lex[token].type == beginsym || lex[token].type == ifsym
+			|| lex[token].type == whilesym || lex[token].type == readsym || lex[token].type == writesym
+			|| lex[token].type == periodsym || lex[token].type == semicolonsym)
+		return;
+	else
 	{
-		identundeclared(input[token].name);	//check if the given identifier was declared or not
-
-		if (error)	//throw an error if it was not declared
-			return;
-
-		token++; //get next token otherwise
-
-		if (input[token].type != becomessym) //if there is no "becomes" symbol, throw unrecognized statement form error
-		{
-			errorend(2);
-			error = 1;
-			return;
-		}
-
-		token++; //get next token
-
-		int ret = expression(input);	//call expression
-
-		if (ret == 0)	//if there was an error and no message was printed -- print unrecognized statement form error message and return to the caller
-		{
-			errorend(2);
-			return;
-		}
-		else if (ret == 2) //if there was an error and it was handled -- return to the caller
-			return;
-	}
-
-	else if (input[token].type == callsym) //if the token is "call"
-	{
-		token++;	//get next token
-
-		identundeclared(input[token].name);	//check if the procedure to be called was declared or not
-
-		if (error)	//return if the procedure was not declared
-			return;
-
-		if (input[token].type != identsym) //if the token is not an identifier, throw "call and read Must Be Followed By an Identifier" error
-		{
-			errorend(14);
-			error = 1;
-			return;
-		}
-
-		token++; //get next token
-	}
-
-	else if (input[token].type == beginsym)	//if the token is "begin"
-	{
-		token++; //get next token
-		statement(input);
-
-		if (error) //if there was an error with statement, return to the caller
-			return;
-
-		while (input[token].type == semicolonsym) //get next token and call statement while token is ";"
-		{
-			token++;
-			statement(input);
-
-			if (error)	//return if an error was detected
-				return;
-		}
-
-		if (input[token].type != endsym)	//if begin is not followed by "end": throw an error and return
-		{
-			errorend(10);
-			error = 1;
-			return;
-		}
-
-		token++; //get next token
-	}
-
-	else if (input[token].type == ifsym)	//if the token is "if"
-	{
-		token++; //get next token
-
-		// checking if there is a condition following "if"
-		int ret = condition(input);
-
-		if (ret == 0) //if there is no condition and error message was not printed -  print the error and return to the caller
-		{
-			errorend(11);
-			return;
-		}
-		else if (ret == 2) //if there is no condition and error message was printed - return to the caller
-			return;
-
-		if (input[token].type != thensym) //if "if" is not followed by "then" - throw an error and return to the caller
-		{
-			errorend(9);
-			error = 1;
-			return;
-		}
-
-		token++; //get next token
-		statement(input);
-
-		if (error) //if there was an error when calling statement, return to the caller
-			return;
-
-		if (input[token].type == elsesym)	//if the token is "else", get next token and call statement
-		{
-			token++;
-			statement(input);
-		}
-	}
-
-	else if (input[token].type == whilesym)	//if the token is "while"
-	{
-		token++; //get next token
-
-		// checking if there is a condition following "while"
-		int ret = condition(input);
-
-		if (ret == 0) //if there is no condition and error message was not printed -  print the error and return to the caller
-		{
-			errorend(11);
-			error = 1;
-			return;
-		}
-		else if (ret == 2) //if there is no condition and error message was printed - return to the caller
-			return;
-
-		if (input[token].type != dosym) //if while is not followed by "do" - throw an error and return to the caller
-		{
-			errorend(8);
-			error = 1;
-			return;
-		}
-
-		token++; //get next token
-		statement(input);
-	}
-
-	else if (input[token].type == readsym) //if the token is read
-	{
-		token++; //get next tokdn
-
-		identundeclared(input[token].name); //check if the identifier was declared or not
-
-		if (error) //if identifier was not declared - return to the caller
-			return;
-
-		//if the next token is not an identifier - 
-		// throw "call and read Must Be Followed By an Identifier" error
-		if (input[token].type != identsym) 
-		{
-			errorend(14);
-			error = 1;
-			return;
-		}
-
-		token++; //get next token
-	}
-
-	else if (input[token].type == writesym) //if the token is write
-	{
-		token++; //get next token
-		int ret = expression(input);
-
-		if (ret == 0) //if there was an error calling expression and the message was not printed - print the error message
-			errorend(2);
-	}
-}
-
-int condition(lexeme* input)
-{
-	if (input[token].type == oddsym) //if the token  is "odd"
-	{
-		token++; //get next token
-		int ret = expression(input);
-
-		if (ret == 0) //if there was an error calling expression and message was not printed -- return 0
-			return 0;
-		else if (ret == 2) //if there was an error calling expression and message was printed -- return 2
-			return 2;
-
-		return 1; //return true otherwise
-	}
-
-	int exp = expression(input);
-
-	if (exp == 0) //if there was an error calling expression and message was not printed -- return 0
-		return 0;
-	else if (exp == 2) //if there was an error calling expression and message was printed -- return 2
-		return 2;
-
-	//if conditions do not contain relational operators, throw error and return
-	if (input[token].type != eqlsym && input[token].type != neqsym && input[token].type != lessym && input[token].type != leqsym && input[token].type != gtrsym && input[token].type != geqsym)
-	{
-		errorend(12);
+		errorend(2);
 		error = 1;
-		return 2;
 	}
-
-	token++; //get next token
-
-	exp = expression(input);
-
-	if (exp == 0)
-		return 0;
-	else if (exp == 2)
-		return 2;
-
-	//return true if there are no errors with condition
-	return 1;
 }
 
-int expression(lexeme* input)
+void const_decl(int level)
 {
-	if (input[token].type == plussym || input[token].type == minussym) //if token is addition symbol, get next token
-		token++;
- 
-	int t = term(input); //call the term and check if there are errors (both with and without printed message)
-
-	if (t == 0)
-		return 0;
-	else if (t == 2)
-		return 2;
-
-	while (input[token].type == plussym || input[token].type == minussym) //get the next token and call term while token is addition symbol
+	if (lex[token].type == commasym)
 	{
 		token++;
-		t = term(input);
-
-		if (t == 0) 
-			return 0;
-		else if (t == 2)
-			return 2;
-	}
-
-	return 1; //return true is there is no error with expression
-}
-
-
-int term(lexeme* input)
-{
-	int f = factor(input);
-
-	if (f == 0) // if there was an error with factor and message was not printed -- return 0
-		return 0;
-	else if (f == 2) // if there was an error with factor and message was printed -- return 2
-		return 2;
-
-	while (input[token].type == multsym || input[token].type == slashsym || input[token].type == modsym) //get the next token and call factor while token is mult symbol
-	{
-		token++;
-		f = factor(input);
-
-		if (f == 0)
-			return 0;
-		else if (f == 2)
-			return 2;
-	}
-
-	return 1; //return true is there is no error with term
-}
-
-int factor(lexeme* input)
-{
-	if (input[token].type == identsym) //if the token is identifier
-	{
-		identundeclared(input[token].name); //check whether identifier was declared or not
-
-		if (error) // if there was an error, return 2 -- error was detected and the message was printed (inside the identundeclared function)
-			return 2;
-
-		token++; //get next token
-
-		return 1; //return true if there is no error
-	}
-
-	else if (input[token].type == numbersym) //get next token and return true if the next token is number
-	{
-		token++; 
-		return 1;
-	}
-
-	else if (input[token].type == lparentsym) //if the token is "(", get next token and call expression
-	{
-		token++;
-		int exp = expression(input);
-
-		if (exp == 0) //if expression had errors and message was not printed : return 0
-			return 0;
-		else if (exp == 2) //if expression had errors and message was printed : return 2
-			return 2;
-
-		if (input[token].type != rparentsym) //if "(", does not have matching ")", throw corresponding error and return to the caller
+		if (lex[token].type != identsym)
 		{
-			errorend(13);
+			errorend(4);
 			error = 1;
-			return 2;
+			return;
 		}
 
-		token++; //get next token
+		identconflict(lex[token].name, level);
+		if (error)
+			return;
 
-		return 1; //return true if there is no error
+		token++;
+		if (lex[token].type != becomessym)
+		{
+			errorend(2);
+			error = 1;
+			return;
+		}
+
+		token++;
+		if (lex[token].type != numbersym)
+		{
+			errorend(5);
+			error = 1;
+			return;
+		}
+
+		table[sym_index].kind = 1;
+		strcpy(table[sym_index].name, lex[token - 2].name);
+		table[sym_index].val = lex[token].value;
+		table[sym_index].level = level;
+		table[sym_index].addr = 0;
+		table[sym_index].mark = 0;
+		sym_index++;
+
+		token++;
+		const_decl(level);
 	}
-
-	error = 1; //return with error otherwise
-	return 0;
+	else if (lex[token].type == semicolonsym)
+		return;
+	else
+	{
+		errorend(2);
+		error = 1;
+	}
 }
 
+void vardecl(int level, int nextaddress)
+{
+	if (lex[token].type == varsym)
+	{
+		token++;
+		if (lex[token].type != identsym)
+		{
+			errorend(4);
+			error = 1;
+			return;
+		}
 
-//error printing function
+		identconflict(lex[token].name, level);
+		if (error)
+			return;
+
+		table[sym_index].kind = 2;
+		strcpy(table[sym_index].name, lex[token].name);
+		table[sym_index].val = 0;
+		table[sym_index].level = level;
+		table[sym_index].addr = nextaddress++;
+		table[sym_index].mark = 0;
+		sym_index++;
+
+		token++;
+		var_decl(level, nextaddress);
+		if (error)
+			return;
+
+		if (lex[token].type != semicolonsym)
+		{
+			errorend(6);
+			error = 1;
+			return;
+		}
+
+		token++;
+	}
+	else if (lex[token].type == procsym || lex[token].type == callsym
+			|| lex[token].type == identsym || lex[token].type == beginsym || lex[token].type == ifsym
+			|| lex[token].type == whilesym || lex[token].type == readsym || lex[token].type == writesym
+			|| lex[token].type == periodsym || lex[token].type == semicolonsym)
+		return;
+	else
+	{
+		errorend(2);
+		error = 1;
+	}
+}
+
+void var_decl(int level, int nextaddress)
+{
+	if (lex[token].type == commasym)
+	{
+		token++;
+		if (lex[token].type != identsym)
+		{
+			errorend(4);
+			error = 1;
+			return;
+		}
+
+		identconflict(lex[token].name, level);
+		if (error)
+			return;
+
+		table[sym_index].kind = 2;
+		strcpy(table[sym_index].name, lex[token].name);
+		table[sym_index].val = 0;
+		table[sym_index].level = level;
+		table[sym_index].addr = nextaddress++;
+		table[sym_index].mark = 0;
+		sym_index++;
+
+		token++;
+		var_decl(level, nextaddress);
+	}
+	else if (lex[token].type == semicolonsym)
+		return;
+	else
+	{
+		errorend(2);
+		error = 1;
+	}
+}
+
+void procdecl(int level)
+{
+	if (lex[token].type == procsym)
+	{
+		token++;
+		if (lex[token].type != identsym)
+		{
+			errorend(4);
+			error = 1;
+			return;
+		}
+
+		identconflict(lex[token].name, level);
+		if (error)
+			return;
+
+		table[sym_index].kind = 3;
+		strcpy(table[sym_index].name, lex[token].name);
+		table[sym_index].val = 0;
+		table[sym_index].level = level;
+		table[sym_index].addr = 0;
+		table[sym_index].mark = 0;
+		sym_index++;
+
+		token++;
+		if (lex[token].type != semicolonsym)
+		{
+			errorend(6);
+			error = 1;
+			return;
+		}
+
+		token++;
+		block(level + 1, 3);
+		if (error)
+			return;
+
+		mark(level + 1);
+
+		if (lex[token].type != semicolonsym)
+		{
+			errorend(6);
+			error = 1;
+			return;
+		}
+
+		token++;
+		procdecl(level);
+	}
+	else if (lex[token].type == callsym
+			|| lex[token].type == identsym || lex[token].type == beginsym || lex[token].type == ifsym
+			|| lex[token].type == whilesym || lex[token].type == readsym || lex[token].type == writesym
+			|| lex[token].type == periodsym || lex[token].type == semicolonsym)
+		return;
+	else
+	{
+		errorend(2);
+		return;
+	}
+}
+
+void statement()
+{
+	switch(lex[token].type)
+	{
+		case identsym:	identundeclared(lex[token].name);
+						if (error)
+							return;
+
+						token++;
+						if (lex[token].type != becomessym)
+						{
+							errorend(2);
+							error = 1;
+							return;
+						}
+
+						token++;
+						expression();
+						break;
+
+		case callsym:	token++;
+						if (lex[token].type != identsym)
+						{
+							errorend(14);
+							error = 1;
+							return;
+						}
+
+						identundeclared(lex[token].name);
+						token++;
+						break;
+
+		case beginsym:	token++;
+						statement();
+						if (error)
+							return;
+
+						state_ment();
+						if (error)
+							return;
+
+						if (lex[token].type != endsym)
+						{
+							errorend(10);
+							error = 1;
+							return;
+						}
+
+						token++;
+						break;
+
+		case ifsym:		token++;
+						condition();
+						if (error)
+							return;
+
+						if (lex[token].type != thensym)
+						{
+							errorend(9);
+							error = 1;
+							return;
+						}
+
+						token++;
+						statement();
+						if (error)
+							return;
+
+						token++;
+						if (lex[token].type == elsesym)
+						{
+							token++;
+							statement();
+						}
+
+						break;
+
+		case whilesym:	token++;
+						condition();
+						if (error)
+							return;
+
+						if (lex[token].type != dosym)
+						{
+							errorend(8);
+							error = 1;
+							return;
+						}
+
+						token++;
+						statement();
+						break;
+
+		case readsym:	token++;
+						if (lex[token].type != identsym)
+						{
+							errorend(14);
+							error = 1;
+							return;
+						}
+
+						identundeclared(lex[token].name);
+						token++;
+						break;
+
+		case writesym: 	token++;
+						expression();
+						break;
+
+		case semicolonsym: break;
+
+		case periodsym:	break;
+
+		case endsym: break;
+
+		case elsesym: break;
+
+		default:	errorend(2);
+				 	error = 1;
+	}
+}
+
+void state_ment()
+{
+	switch(lex[token].type)
+	{
+		case semicolonsym: 	token++;
+							statement();
+							if (error)
+								return;
+
+							state_ment();
+							break;
+
+		case endsym:		break;
+
+		default:			errorend(10);
+							error = 1;
+	}
+}
+
+void condition()
+{
+	if (lex[token].type == oddsym)
+	{
+		token++;
+		expression();
+	}
+	else if (lex[token].type == plussym || lex[token].type == minussym || lex[token].type == identsym
+			|| lex[token].type == numbersym || lex[token].type == lparentsym)
+	{
+		expression();
+		if (error)
+			return;
+
+		if (lex[token].type != eqlsym && lex[token].type != neqsym && lex[token].type != lessym
+			&& lex[token].type != leqsym && lex[token].type != gtrsym && lex[token].type != geqsym)
+		{
+			errorend(12);
+			error = 1;
+			return;
+		}
+
+		expression();
+	}
+	else
+	{
+		errorend(11);
+		error = 1;
+	}
+}
+
+void expression()
+{
+	if (lex[token].type == plussym || lex[token].type == minussym || lex[token].type == identsym
+		||lex[token].type == numbersym || lex[token].type == lparentsym)
+	{
+		if (lex[token].type == plussym || lex[token].type == minussym)
+			token++;
+
+		term();
+		if (error)
+			return;
+
+		te_rm();
+	}
+	else
+	{
+		errorend(2);
+		error = 1;
+	}
+}
+
+void term()
+{
+	if (lex[token].type == identsym || lex[token].type == numbersym || lex[token].type == lparentsym)
+	{
+		factor();
+		if (error)
+			return;
+
+		fac_tor();
+	}
+	else
+	{
+		errorend(2);
+		error = 1;
+	}
+}
+
+void te_rm()
+{
+	if (lex[token].type == plussym || lex[token].type == minussym)
+	{
+		token++;
+		term();
+		if (error)
+			return;
+
+		te_rm();
+	}
+
+	else if (lex[token].type == thensym || lex[token].type == dosym || lex[token].type == semicolonsym
+			 || lex[token].type == periodsym || lex[token].type == rparentsym || lex[token].type == endsym
+			 || lex[token].type == elsesym || lex[token].type == eqlsym || lex[token].type == neqsym
+			 || lex[token].type == lessym || lex[token].type == leqsym || lex[token].type == gtrsym
+			 || lex[token].type == geqsym)
+		return;
+	else
+	{
+		errorend(2);
+		error = 1;
+	}
+}
+
+void factor()
+{
+	switch(lex[token].type)
+	{
+		case identsym: 	identundeclared(lex[token].name);
+						token++;
+						break;
+
+		case numbersym:	token++;
+						break;
+
+		case lparentsym:	token++;
+							expression();
+							if (error)
+								break;
+
+							if (lex[token].type != rparentsym)
+							{
+								errorend(13);
+								error = 1;
+								return;
+							}
+
+							token++;
+							break;
+
+		default:	errorend(2);
+					error = 1;
+	}
+}
+
+void fac_tor()
+{
+	if (lex[token].type == multsym || lex[token].type == slashsym || lex[token].type == modsym)
+	{
+		token++;
+		factor();
+		if (error)
+			return;
+
+		fac_tor();
+	}
+	else if (lex[token].type == thensym || lex[token].type == dosym || lex[token].type == semicolonsym
+			 || lex[token].type == periodsym || lex[token].type == rparentsym || lex[token].type == endsym
+			 || lex[token].type == elsesym || lex[token].type == eqlsym || lex[token].type == neqsym
+			 || lex[token].type == lessym || lex[token].type == leqsym || lex[token].type == gtrsym
+			 || lex[token].type == geqsym)
+		return;
+	else
+	{
+		errorend(2);
+		error = 1;
+	}
+}
+
 void errorend(int x)
 {
 	switch (x)
@@ -674,7 +772,6 @@ void errorend(int x)
 
 }
 
-//print the symbol table
 void printtable()
 {
 	int i;
