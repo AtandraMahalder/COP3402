@@ -69,12 +69,14 @@ void block()
 
 	vardecl();
 
-	int num_var = sym_index - old_sym_index + 3;
+	int num_var = sym_index - old_sym_index;
 
 	procdecl();
 
-	emit(6, 0, num_var);
 	start_code = code_index;
+
+	if (num_var)
+		emit(6, 0, num_var + 3);
 
 	statement();
 }
@@ -84,8 +86,7 @@ void constdecl()
 	if (lex[token].type == constsym)
 	{
 		token++;
-		int symaddress = seek(lex[token].name);
-		table[symaddress].mark = 0;
+		table[sym_index].mark = 0;
 		sym_index++;
 
 		token += 3;
@@ -99,8 +100,7 @@ void const_decl()
 	if (lex[token].type == commasym)
 	{
 		token++;
-		int symaddress = seek(lex[token].name);
-		table[symaddress].mark = 0;
+		table[sym_index].mark = 0;
 		sym_index++;
 
 		token += 3;
@@ -113,8 +113,7 @@ void vardecl()
 	if (lex[token].type == varsym)
 	{
 		token++;
-		int symaddress = seek(lex[token].name);
-		table[symaddress].mark = 0;
+		table[sym_index].mark = 0;
 		sym_index++;
 
 		token++;
@@ -128,8 +127,7 @@ void var_decl()
 	if (lex[token].type == commasym)
 	{
 		token++;
-		int symaddress = seek(lex[token].name);
-		table[symaddress].mark = 0;
+		table[sym_index].mark = 0;
 		sym_index++;
 		token++;
 		var_decl();
@@ -141,10 +139,8 @@ void procdecl()
 	if (lex[token].type == procsym)
 	{
 		token++;
-		int symaddress = seek(lex[token].name);
-
-		table[symaddress].val = code_index;
-		table[symaddress].mark = 0;
+		table[sym_index].val = code_index;
+		table[sym_index].mark = 0;
 		sym_index++;
 
 		token += 2;
@@ -414,7 +410,7 @@ int seek(char *name)
 		i--;
 	}
 
-	return -1;
+	return i;
 }
 
 void printcode()
