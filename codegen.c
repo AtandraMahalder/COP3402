@@ -49,6 +49,7 @@ instruction *generate_code(lexeme *tokens, symbol *symbols)
 	lex = tokens;
 	table = symbols;
 
+	// should I make this block specific ?
 	emit(7, 0, start_code);
 
 	block();
@@ -85,11 +86,10 @@ void constdecl()
 {
 	if (lex[token].type == constsym)
 	{
-		token++;
 		table[sym_index].mark = 0;
 		sym_index++;
 
-		token += 3;
+		token += 4;
 		const_decl();
 		token++;
 	}
@@ -99,11 +99,10 @@ void const_decl()
 {
 	if (lex[token].type == commasym)
 	{
-		token++;
 		table[sym_index].mark = 0;
 		sym_index++;
 
-		token += 3;
+		token += 4;
 		const_decl();
 	}
 }
@@ -112,11 +111,10 @@ void vardecl()
 {
 	if (lex[token].type == varsym)
 	{
-		token++;
 		table[sym_index].mark = 0;
 		sym_index++;
 
-		token++;
+		token += 2;
 		var_decl();
 		token++;
 	}
@@ -126,10 +124,10 @@ void var_decl()
 {
 	if (lex[token].type == commasym)
 	{
-		token++;
 		table[sym_index].mark = 0;
 		sym_index++;
-		token++;
+
+		token += 2;
 		var_decl();
 	}
 }
@@ -138,12 +136,11 @@ void procdecl()
 {
 	if (lex[token].type == procsym)
 	{
-		token++;
 		table[sym_index].val = code_index;
 		table[sym_index].mark = 0;
 		sym_index++;
 
-		token += 2;
+		token += 3;
 
 		lexlevel++;
 		block();
@@ -200,11 +197,16 @@ void statement()
 
 						code[old_code_index].m = code_index;
 
-						token++;
 						if (lex[token].type == elsesym)
 						{
+							code[old_code_index].m = code_index + 1;
+							old_code_index = code_index;
+							emit(7, 0, 0);
+
 							token++;
 							statement();
+
+							code[old_code_index].m = code_index;
 						}
 
 						break;
