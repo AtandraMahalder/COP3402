@@ -706,7 +706,8 @@ void fac_tor()
 
 		fac_tor();
 	}
-	else if (lex[token].type == thensym || lex[token].type == dosym || lex[token].type == semicolonsym
+	else if (lex[token].type == plussym || lex[token].type == minussym || lex[token].type == thensym
+			 || lex[token].type == dosym || lex[token].type == semicolonsym
 			 || lex[token].type == periodsym || lex[token].type == rparentsym || lex[token].type == endsym
 			 || lex[token].type == elsesym || lex[token].type == eqlsym || lex[token].type == neqsym
 			 || lex[token].type == lessym || lex[token].type == leqsym || lex[token].type == gtrsym
