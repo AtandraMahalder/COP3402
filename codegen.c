@@ -11,7 +11,6 @@ instruction *code;
 int code_index;
 int token;
 int sym_index;
-int start_code;
 int lexlevel;
 lexeme *lex;
 symbol *table;
@@ -45,16 +44,10 @@ instruction *generate_code(lexeme *tokens, symbol *symbols)
 	lexlevel = 0;
 	token = 0;
 	sym_index = 1;
-	start_code = 0;
 	lex = tokens;
 	table = symbols;
 
-	// should I make this block specific ?
-	emit(7, 0, start_code);
-
 	block();
-
-	code[0].m = start_code;
 
 	emit(9, 0, 3);
 
@@ -64,6 +57,10 @@ instruction *generate_code(lexeme *tokens, symbol *symbols)
 
 void block()
 {
+	// should this statement be here?
+	int jmp_ins_index = code_index;
+	emit(7, 0, 0);
+
 	constdecl();
 
 	int old_sym_index = sym_index;
@@ -74,7 +71,7 @@ void block()
 
 	procdecl();
 
-	start_code = code_index;
+	code[jmp_ins_index].m = code_index;
 
 	if (num_var)
 		emit(6, 0, num_var + 3);
@@ -148,7 +145,7 @@ void procdecl()
 
 		mark(lexlevel + 1);
 
-		emit(2, 0, 1);
+		emit(2, 0, 0);
 
 		token++;
 		procdecl();
