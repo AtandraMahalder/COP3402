@@ -8,6 +8,7 @@
 #include "compiler.h"
 
 instruction *code;
+int start_code;
 int code_index;
 int token;
 int sym_index;
@@ -40,6 +41,7 @@ instruction *generate_code(lexeme *tokens, symbol *symbols)
 {
 	code = malloc(500 * sizeof(instruction));
 	code_index = 0;
+	start_code = 0;
 
 	lexlevel = 0;
 	token = 0;
@@ -47,7 +49,11 @@ instruction *generate_code(lexeme *tokens, symbol *symbols)
 	lex = tokens;
 	table = symbols;
 
+	emit(7, 0, start_code);
+
 	block();
+
+	code[0].m = 3*start_code;
 
 	emit(9, 0, 3);
 
@@ -57,24 +63,16 @@ instruction *generate_code(lexeme *tokens, symbol *symbols)
 
 void block()
 {
-	// should this statement be here?
-	int jmp_ins_index = code_index;
-	emit(7, 0, 0);
-
 	constdecl();
 
 	int old_sym_index = sym_index;
-
 	vardecl();
-
 	int num_var = sym_index - old_sym_index;
 
 	procdecl();
 
-	code[jmp_ins_index].m = code_index;
-
-	if (num_var)
-		emit(6, 0, num_var + 3);
+	start_code = code_index;
+	emit(6, 0, num_var + 3);
 
 	statement();
 }
@@ -133,17 +131,29 @@ void procdecl()
 {
 	if (lex[token].type == procsym)
 	{
-		table[sym_index].val = code_index;
+		int this_sym_index = sym_index;
 		table[sym_index].mark = 0;
+		table[sym_index].val = -1;
 		sym_index++;
 
 		token += 3;
 
+		int curr_code_index = code_index;
+
 		lexlevel++;
 		block();
 		lexlevel--;
-
 		mark(lexlevel + 1);
+
+		for (int i = curr_code_index; i < code_index; ++i)
+		{
+			if (code[i].opcode == 5 && code[i].m == -1)
+			{
+				code[i].m = 3*start_code;
+			}
+		}
+
+		table[this_sym_index].val = 3*start_code;
 
 		emit(2, 0, 0);
 
@@ -192,18 +202,18 @@ void statement()
 						token++;
 						statement();
 
-						code[old_code_index].m = code_index;
+						code[old_code_index].m = 3*code_index;
 
 						if (lex[token].type == elsesym)
 						{
-							code[old_code_index].m = code_index + 1;
+							code[old_code_index].m += 3;
 							old_code_index = code_index;
 							emit(7, 0, 0);
 
 							token++;
 							statement();
 
-							code[old_code_index].m = code_index;
+							code[old_code_index].m = 3*code_index;
 						}
 
 						break;
@@ -217,8 +227,8 @@ void statement()
 
 						token++;
 						statement();
-						emit(7, 0, jmpaddress);
-						code[old_code_index].m = code_index;
+						emit(7, 0, 3*jmpaddress);
+						code[old_code_index].m = 3*code_index;
 						break;
 
 		case readsym:	token++;
