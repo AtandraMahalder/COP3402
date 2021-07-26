@@ -40,12 +40,12 @@ void fac_tor();
 instruction *generate_code(lexeme *tokens, symbol *symbols)
 {
 	code = malloc(500 * sizeof(instruction));
-	code_index = 0;
-	start_code = 0;
+	code_index = 0; //pointer to the code instruction array
+	start_code = 0; 
 
-	lexlevel = 0;
-	token = 0;
-	sym_index = 1;
+	lexlevel = 0;  //current lexicographical level the program is at
+	token = 0;     // pointer to the lexeme array
+	sym_index = 1; //pointer to the symbol table array
 	lex = tokens;
 	table = symbols;
 
@@ -55,7 +55,7 @@ instruction *generate_code(lexeme *tokens, symbol *symbols)
 
 	code[0].m = 3*start_code;
 
-	emit(9, 0, 3);
+	emit(9, 0, 3); // end of the program command
 
 	printcode();
 	return code;
@@ -65,14 +65,17 @@ void block()
 {
 	constdecl();
 
-	int old_sym_index = sym_index;
-	vardecl();
-	int num_var = sym_index - old_sym_index;
+	int old_sym_index = sym_index; //store the old symbol table index to know how many variables we need to allocate space to in AR
 
+	vardecl();
+
+	int num_var = sym_index - old_sym_index; //get the number of variables
+	
 	procdecl();
 
 	start_code = code_index;
-	emit(6, 0, num_var + 3);
+
+	emit(6, 0, num_var + 3); 
 
 	statement();
 }
@@ -81,7 +84,7 @@ void constdecl()
 {
 	if (lex[token].type == constsym)
 	{
-		table[sym_index].mark = 0;
+		table[sym_index].mark = 0;  //unmark the constants in symbol table
 		sym_index++;
 
 		token += 4;
@@ -90,6 +93,7 @@ void constdecl()
 	}
 }
 
+//helper function for constants
 void const_decl()
 {
 	if (lex[token].type == commasym)
@@ -98,6 +102,7 @@ void const_decl()
 		sym_index++;
 
 		token += 4;
+
 		const_decl();
 	}
 }
@@ -106,7 +111,7 @@ void vardecl()
 {
 	if (lex[token].type == varsym)
 	{
-		table[sym_index].mark = 0;
+		table[sym_index].mark = 0; //unmark the variables in symbol table
 		sym_index++;
 
 		token += 2;
@@ -114,6 +119,8 @@ void vardecl()
 		token++;
 	}
 }
+
+//helper function for variables
 
 void var_decl()
 {
@@ -123,6 +130,7 @@ void var_decl()
 		sym_index++;
 
 		token += 2;
+
 		var_decl();
 	}
 }
@@ -131,28 +139,31 @@ void procdecl()
 {
 	if (lex[token].type == procsym)
 	{
-		int this_sym_index = sym_index;
-		table[sym_index].mark = 0;
+		int this_sym_index = sym_index; 
+		table[sym_index].mark = 0; //unmark the identifier in symbol table
 		table[sym_index].val = -1;
 		sym_index++;
 
 		token += 3;
 
-		int curr_code_index = code_index;
+		int curr_code_index = code_index; 
 
-		lexlevel++;
+		lexlevel++; //increase the lex level as we are about to enter a block
 		block();
 		lexlevel--;
 		mark(lexlevel + 1);
 
+		//find the instruction CAL and set its previous dummy M to actual value
 		for (int i = curr_code_index; i < code_index; ++i)
 		{
 			if (code[i].opcode == 5 && code[i].m == -1)
 			{
+				
 				code[i].m = 3*start_code;
 			}
 		}
 
+		//set the address of the current procedure to actual value
 		table[this_sym_index].val = 3*start_code;
 
 		emit(2, 0, 0);
@@ -162,25 +173,26 @@ void procdecl()
 	}
 }
 
+
 void statement()
 {
 	int identaddress, old_code_index;
 
 	switch(lex[token].type)
 	{
-		case identsym:	identaddress = seek(lex[token].name);
+		case identsym:	identaddress = seek(lex[token].name); //find the address of the token in symbol table
 
-						token += 2;
+						token += 2; 
 						expression();
 
-						emit(4, lexlevel - table[identaddress].level, table[identaddress].addr);
-
+						emit(4, lexlevel - table[identaddress].level, table[identaddress].addr); //emit the corresponding code with correct relative lex level
+						
 						break;
 
 		case callsym:	token++;
-						identaddress = seek(lex[token].name);
+						identaddress = seek(lex[token].name); //find the address of the token in symbol table
 
-						emit(5, lexlevel - table[identaddress].level, table[identaddress].val);
+						emit(5, lexlevel - table[identaddress].level, table[identaddress].val); //emit the corresponding code with correct relative lex level
 
 						token++;
 						break;
@@ -197,29 +209,30 @@ void statement()
 						condition();
 
 						old_code_index = code_index;
-						emit(8, 0, 0);
+						emit(8, 0, 0); // JPC with dummy M
 
 						token++;
 						statement();
 
-						code[old_code_index].m = 3*code_index;
+						code[old_code_index].m = 3*code_index; //set an actual value to M
 
-						if (lex[token].type == elsesym)
+						if (lex[token].type == elsesym) //if the token is "else"
 						{
-							code[old_code_index].m += 3;
+							code[old_code_index].m += 3; //move the JPC value 3 addresses forward
 							old_code_index = code_index;
 							emit(7, 0, 0);
 
 							token++;
 							statement();
 
-							code[old_code_index].m = 3*code_index;
+							code[old_code_index].m = 3*code_index; //update the M value after else statements
 						}
 
 						break;
 
 		case whilesym:	token++;
-						int jmpaddress = code_index;
+
+						int jmpaddress = code_index; //store the address of the condition where the code should jump
 						condition();
 
 						old_code_index = code_index;
@@ -227,15 +240,15 @@ void statement()
 
 						token++;
 						statement();
-						emit(7, 0, 3*jmpaddress);
-						code[old_code_index].m = 3*code_index;
+						emit(7, 0, 3*jmpaddress);  
+						code[old_code_index].m = 3*code_index; 
 						break;
 
 		case readsym:	token++;
 						emit(9, 0, 2);
 
-						identaddress = seek(lex[token].name);
-						emit(4, lexlevel - table[identaddress].level, table[identaddress].addr);
+						identaddress = seek(lex[token].name); //find the address of the token in symbol table
+						emit(4, lexlevel - table[identaddress].level, table[identaddress].addr); //emit the corresponding code with correct relative lex level
 
 						token++;
 						break;
@@ -250,6 +263,8 @@ void statement()
 	}
 }
 
+
+//helper function for statement
 void state_ment()
 {
 	switch(lex[token].type)
@@ -281,7 +296,7 @@ void condition()
 	token++;
 	expression();
 
-	switch(relop)
+	switch(relop) //emit the code based on the relational operator type obtained above
 	{
 		case eqlsym:	emit(2, 0, 8);
 							break;
@@ -307,7 +322,7 @@ void expression()
 		token++;
 		term();
 
-		if (firstop == minussym)
+		if (firstop == minussym) //if the first operation is "-", then emit negation code
 			emit(2, 0, 1);
 	}
 	else
@@ -322,6 +337,7 @@ void term()
 	fac_tor();
 }
 
+//helper function for term
 void te_rm()
 {
 	if (lex[token].type == plussym || lex[token].type == minussym)
@@ -330,7 +346,7 @@ void te_rm()
 		token++;
 		term();
 
-		if (operation == plussym)
+		if (operation == plussym) //emit ADD or SUB based on the operationn type
 			emit(2, 0, 2);
 		else
 			emit(2, 0, 3);
@@ -345,17 +361,17 @@ void factor()
 
 	switch(lex[token].type)
 	{
-		case identsym: 	identaddress = seek(lex[token].name);
+		case identsym: 	identaddress = seek(lex[token].name); //find the address of the token in symbol table
 
 						if (table[identaddress].kind == 1)
-							emit(1, 0, table[identaddress].val);
+							emit(1, 0, table[identaddress].val);  //emit LIT if it is a constant
 						else
-							emit(3, lexlevel - table[identaddress].level, table[identaddress].addr);
+							emit(3, lexlevel - table[identaddress].level, table[identaddress].addr); //otherwise LOD from memory
 
 						token++;
 						break;
 
-		case numbersym:	emit(1, 0, lex[token].value);
+		case numbersym:	emit(1, 0, lex[token].value); //LIT if it is just a number
 
 						token++;
 						break;
@@ -373,10 +389,11 @@ void fac_tor()
 {
 	if (lex[token].type == multsym || lex[token].type == slashsym || lex[token].type == modsym)
 	{
-		int operation = lex[token].type;
+		int operation = lex[token].type; //store the factor operation
 		token++;
 		factor();
 
+		//emit the corresponding code based on the operation
 		if (operation == multsym)
 			emit(2, 0, 4);
 		else if (operation == slashsym)
@@ -388,6 +405,7 @@ void fac_tor()
 	}
 }
 
+//add code to the instruction array
 void emit(int opcode, int l, int m)
 {
 	code[code_index].opcode = opcode;
@@ -396,6 +414,7 @@ void emit(int opcode, int l, int m)
 	code_index++;
 }
 
+//mark the elements at a given level as unvailable
 void mark(int level)
 {
 	int i = sym_index - 1;
@@ -408,6 +427,7 @@ void mark(int level)
 	}
 }
 
+//find the element in symbol table array
 int seek(char *name)
 {
 	int i = sym_index - 1;
@@ -422,6 +442,8 @@ int seek(char *name)
 	return i;
 }
 
+
+//print the contents of the instruction array to the console
 void printcode()
 {
 	int i;
