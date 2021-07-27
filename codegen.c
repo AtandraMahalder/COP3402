@@ -41,7 +41,7 @@ instruction *generate_code(lexeme *tokens, symbol *symbols)
 {
 	code = malloc(500 * sizeof(instruction));
 	code_index = 0; //pointer to the code instruction array
-	start_code = 0; 
+	start_code = 0;
 
 	lexlevel = 0;  //current lexicographical level the program is at
 	token = 0;     // pointer to the lexeme array
@@ -70,12 +70,12 @@ void block()
 	vardecl();
 
 	int num_var = sym_index - old_sym_index; //get the number of variables
-	
+
 	procdecl();
 
 	start_code = code_index;
 
-	emit(6, 0, num_var + 3); 
+	emit(6, 0, num_var + 3);
 
 	statement();
 }
@@ -139,29 +139,34 @@ void procdecl()
 {
 	if (lex[token].type == procsym)
 	{
-		int this_sym_index = sym_index; 
+		int this_sym_index = sym_index;
 		table[sym_index].mark = 0; //unmark the identifier in symbol table
-		table[sym_index].val = -1;
+		table[sym_index].val = code_index;
 		sym_index++;
 
 		token += 3;
 
-		int curr_code_index = code_index; 
+		int curr_code_index = code_index;
 
 		lexlevel++; //increase the lex level as we are about to enter a block
 		block();
-		lexlevel--;
-		mark(lexlevel + 1);
 
 		//find the instruction CAL and set its previous dummy M to actual value
+		// code is kind of buggy here
 		for (int i = curr_code_index; i < code_index; ++i)
 		{
-			if (code[i].opcode == 5 && code[i].m == -1)
+			if (code[i].opcode == 5 && code[i].l == lexlevel - table[this_sym_index].level && code[i].m == table[this_sym_index].val)
 			{
-				
+				lexlevel++;
 				code[i].m = 3*start_code;
 			}
+
+			if (code[i].opcode == 2 && code[i].m == 0)
+				lexlevel--;
 		}
+
+		lexlevel--;
+		mark(lexlevel + 1);
 
 		//set the address of the current procedure to actual value
 		table[this_sym_index].val = 3*start_code;
@@ -182,11 +187,11 @@ void statement()
 	{
 		case identsym:	identaddress = seek(lex[token].name); //find the address of the token in symbol table
 
-						token += 2; 
+						token += 2;
 						expression();
 
 						emit(4, lexlevel - table[identaddress].level, table[identaddress].addr); //emit the corresponding code with correct relative lex level
-						
+
 						break;
 
 		case callsym:	token++;
@@ -240,8 +245,8 @@ void statement()
 
 						token++;
 						statement();
-						emit(7, 0, 3*jmpaddress);  
-						code[old_code_index].m = 3*code_index; 
+						emit(7, 0, 3*jmpaddress);
+						code[old_code_index].m = 3*code_index;
 						break;
 
 		case readsym:	token++;
