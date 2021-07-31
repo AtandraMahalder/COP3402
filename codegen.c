@@ -1,14 +1,17 @@
 /*
-	Author:
+	COP3402. Project-4
+	Author: Atandra Mahalder and Emin Mammadzada
+	Date: July 28, 2021
 */
 
+// included libraries
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include "compiler.h"
 
+// global variables
 instruction *code;
-int start_code;
 int code_index;
 int token;
 int sym_index;
@@ -16,12 +19,14 @@ int lexlevel;
 lexeme *lex;
 symbol *table;
 
+// function prototypes
 void emit(int, int, int);
-int seek(char*);
+int seeknotfunc(char*);
+int seekvar(char*);
+int seekfunc(char*);
 void mark(int);
 void printcode();
-
-void block();
+void block(int);
 void constdecl();
 void const_decl();
 void vardecl();
@@ -36,24 +41,26 @@ void te_rm();
 void factor();
 void fac_tor();
 
-
+// code generator function
 instruction *generate_code(lexeme *tokens, symbol *symbols)
 {
 	code = malloc(500 * sizeof(instruction));
 	code_index = 0; //pointer to the code instruction array
-	start_code = 0;
 
 	lexlevel = 0;  //current lexicographical level the program is at
 	token = 0;     // pointer to the lexeme array
-	sym_index = 1; //pointer to the symbol table array
 	lex = tokens;
 	table = symbols;
 
-	emit(7, 0, start_code);
+	// unmarking main
+	table[0].mark = 0;
+	sym_index = 1;
 
-	block();
+	emit(7, 0, 0);
 
-	code[0].m = 3*start_code;
+	block(0);
+
+	code[0].m = table[0].val;
 
 	emit(9, 0, 3); // end of the program command
 
@@ -61,7 +68,7 @@ instruction *generate_code(lexeme *tokens, symbol *symbols)
 	return code;
 }
 
-void block()
+void block(int proc_index)
 {
 	constdecl();
 
@@ -73,7 +80,7 @@ void block()
 
 	procdecl();
 
-	start_code = code_index;
+	table[proc_index].val = 3*code_index;
 
 	emit(6, 0, num_var + 3);
 
@@ -139,38 +146,17 @@ void procdecl()
 {
 	if (lex[token].type == procsym)
 	{
-		int this_sym_index = sym_index;
-		table[sym_index].mark = 0; //unmark the identifier in symbol table
-		table[sym_index].val = code_index;
+		table[sym_index].mark = 0; // unmark the identifier in symbol table
 		sym_index++;
 
 		token += 3;
 
-		int curr_code_index = code_index;
-
-		lexlevel++; //increase the lex level as we are about to enter a block
-		block();
-
-		//find the instruction CAL and set its previous dummy M to actual value
-		// code is kind of buggy here
-		for (int i = curr_code_index; i < code_index; ++i)
-		{
-			if (code[i].opcode == 5 && code[i].l == lexlevel - table[this_sym_index].level && code[i].m == table[this_sym_index].val)
-			{
-				lexlevel++;
-				code[i].m = 3*start_code;
-			}
-
-			if (code[i].opcode == 2 && code[i].m == 0)
-				lexlevel--;
-		}
-
+		lexlevel++; // increase the lex level as we are about to enter a block
+		block(sym_index - 1);
 		lexlevel--;
 		mark(lexlevel + 1);
 
-		//set the address of the current procedure to actual value
-		table[this_sym_index].val = 3*start_code;
-
+		// emit return
 		emit(2, 0, 0);
 
 		token++;
@@ -185,7 +171,7 @@ void statement()
 
 	switch(lex[token].type)
 	{
-		case identsym:	identaddress = seek(lex[token].name); //find the address of the token in symbol table
+		case identsym:	identaddress = seekvar(lex[token].name); // find the address of the token in symbol table
 
 						token += 2;
 						expression();
@@ -195,7 +181,7 @@ void statement()
 						break;
 
 		case callsym:	token++;
-						identaddress = seek(lex[token].name); //find the address of the token in symbol table
+						identaddress = seekfunc(lex[token].name); //find the address of the token in symbol table
 
 						emit(5, lexlevel - table[identaddress].level, table[identaddress].val); //emit the corresponding code with correct relative lex level
 
@@ -252,7 +238,7 @@ void statement()
 		case readsym:	token++;
 						emit(9, 0, 2);
 
-						identaddress = seek(lex[token].name); //find the address of the token in symbol table
+						identaddress = seeknotfunc(lex[token].name); //find the address of the token in symbol table
 						emit(4, lexlevel - table[identaddress].level, table[identaddress].addr); //emit the corresponding code with correct relative lex level
 
 						token++;
@@ -366,7 +352,7 @@ void factor()
 
 	switch(lex[token].type)
 	{
-		case identsym: 	identaddress = seek(lex[token].name); //find the address of the token in symbol table
+		case identsym: 	identaddress = seeknotfunc(lex[token].name); //find the address of the token in symbol table
 
 						if (table[identaddress].kind == 1)
 							emit(1, 0, table[identaddress].val);  //emit LIT if it is a constant
@@ -433,12 +419,12 @@ void mark(int level)
 }
 
 //find the element in symbol table array
-int seek(char *name)
+int seeknotfunc(char *name)
 {
 	int i = sym_index - 1;
 	while (i >= 0)
 	{
-		if (!strcmp(table[i].name, name) && !table[i].mark)
+		if (!strcmp(table[i].name, name) && !table[i].mark && table[i].kind != 3)
 			return i;
 
 		i--;
@@ -447,6 +433,33 @@ int seek(char *name)
 	return i;
 }
 
+int seekvar(char *name)
+{
+	int i = sym_index - 1;
+	while (i >= 0)
+	{
+		if (!strcmp(table[i].name, name) && !table[i].mark && table[i].kind == 2)
+			return i;
+
+		i--;
+	}
+
+	return i;
+}
+
+int seekfunc(char *name)
+{
+	int i = sym_index - 1;
+	while (i >= 0)
+	{
+		if (!strcmp(table[i].name, name) && !table[i].mark && table[i].kind == 3)
+			return i;
+
+		i--;
+	}
+
+	return i;
+}
 
 //print the contents of the instruction array to the console
 void printcode()
